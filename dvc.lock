@@ -1,0 +1,81 @@
+schema: '2.0'
+stages:
+  unzip_data:
+    cmd: python -m ucr_benchmark_template dataset unzip-data
+    deps:
+    - path: data/external/UCRArchive_2018.zip
+      hash: md5
+      md5: 64239f6b197840b6c5a36ca5dad37c78
+      size: 318386832
+    - path: ucr_benchmark_template/dataset.py
+      hash: md5
+      md5: b7af7b2ec7a8ecee7362e950fe73df4d
+      size: 4191
+    outs:
+    - path: data/raw/
+      hash: md5
+      md5: c2cdddbc00b8da3a23dee1aaa2bd5a89.dir
+      size: 894634377
+      nfiles: 416
+  preprocess_data:
+    cmd: python -m ucr_benchmark_template dataset preprocess-data
+    deps:
+    - path: data/raw/
+      hash: md5
+      md5: c2cdddbc00b8da3a23dee1aaa2bd5a89.dir
+      size: 894634377
+      nfiles: 416
+    - path: ucr_benchmark_template/dataset.py
+      hash: md5
+      md5: b7af7b2ec7a8ecee7362e950fe73df4d
+      size: 4191
+    params:
+      params.yaml:
+        preprocess.datasets:
+        - Fungi
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: b60a7dcd5784eb4953e4c9a1ebfa1cde.dir
+      size: 577727261
+      nfiles: 120
+  train_all:
+    cmd: python -m ucr_benchmark_template.modeling.train
+    deps:
+    - path: data/processed/
+      hash: md5
+      md5: b60a7dcd5784eb4953e4c9a1ebfa1cde.dir
+      size: 577727261
+      nfiles: 120
+    - path: params.yaml
+      hash: md5
+      md5: 661517f78c8f96369211e1ca3d104772
+      size: 372
+    - path: ucr_benchmark_template/modeling/train.py
+      hash: md5
+      md5: 93eb3d40b71c5d459db8a6a64ad54d38
+      size: 4483
+    params:
+      params.yaml:
+        train.batch: 16
+        train.depths:
+        - 2
+        train.epochs:
+        - 500
+        train.hidden_layers:
+        - 100
+        train.learning_rates:
+        - 0.001
+        train.seeds:
+        - 42
+    outs:
+    - path: data/results/
+      hash: md5
+      md5: 43e866c5890720f24a7eabd263cd45ef.dir
+      size: 648
+      nfiles: 1
+    - path: models/
+      hash: md5
+      md5: a8d5429ec7c7c73c0f29dce7363f7a6b.dir
+      size: 782220
+      nfiles: 1

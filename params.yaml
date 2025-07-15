@@ -1,0 +1,12 @@
+preprocess:
+  input_dir: data/raw/UCRArchive_2018
+  output_dir: data/processed
+  datasets: []  # or ["GunPoint", ...]
+
+train:
+  depths: [2] #depth of hidden layer 2 -> [input_layer,100,100,output_layer]
+  hidden_layers: [100] #size of hidden layer. depth=2, hl=100 -> [input_layer,100,100,output_layer]
+  learning_rates: [0.001]
+  seeds: [42]
+  epochs: [500]
+  batch: 16

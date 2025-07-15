@@ -1,0 +1,37 @@
+stages:
+  unzip_data:
+    cmd: python -m ucr_benchmark_template dataset unzip-data
+    deps:
+      - data/external/UCRArchive_2018.zip  
+      - ucr_benchmark_template/dataset.py
+    outs:
+      - data/raw/: 
+          persist: true  
+
+  preprocess_data:
+    cmd: python -m ucr_benchmark_template dataset preprocess-data
+    deps:
+      - data/raw/
+      - ucr_benchmark_template/dataset.py
+    outs:
+      - data/processed: 
+          persist: true
+    params:
+      - preprocess.datasets
+
+  train_all:
+    cmd: python -m ucr_benchmark_template.modeling.train 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train.py
+      - params.yaml  
+    outs:
+      - models/
+      - data/results/
+    params:
+      - train.depths
+      - train.hidden_layers
+      - train.learning_rates
+      - train.seeds
+      - train.epochs
+      - train.batch
