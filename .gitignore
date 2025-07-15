@@ -11,3 +11,4 @@ results/
 
 # Python cache
 __pycache__/
+data/external/UCRArchive_2018.zip
