@@ -1,5 +1,6 @@
 dvc
 ipython
+python-dotenv
 jupyterlab
 loguru
 matplotlib
@@ -15,3 +16,4 @@ scikit-learn
 tqdm
 typer
 -e .
+
