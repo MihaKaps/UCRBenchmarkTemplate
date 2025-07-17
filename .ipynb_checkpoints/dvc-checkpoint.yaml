@@ -1,33 +1,42 @@
 stages:
   unzip_data:
-    cmd: python -m ucr_benchmark_template dataset unzip-data
+    cmd: python -m ucr_benchmark_template.preprocessing.preprocess unzip-data
     deps:
       - data/external/UCRArchive_2018.zip  
-      - ucr_benchmark_template/dataset.py
+      - ucr_benchmark_template/preprocessing/preprocess.py
     outs:
       - data/raw/: 
           persist: true  
-
+  
   preprocess_data:
-    cmd: python -m ucr_benchmark_template dataset preprocess-data
+    cmd: python -m ucr_benchmark_template.preprocessing.preprocess preprocess-data
     deps:
       - data/raw/
-      - ucr_benchmark_template/dataset.py
+      - ucr_benchmark_template/preprocessing/preprocess.py 
+      - ucr_benchmark_template/preprocessing/preprocessors/mlp.py
+      - ucr_benchmark_template/preprocessing/preprocessors/kan.py
     outs:
-      - data/processed: 
+      # - data/processed: 
+      #     persist: true
+      - data/processed/raw_splits:
+          persist: true
+      - data/processed/mlp:
+          persist: true
+      - data/processed/mlp:
           persist: true
     params:
       - preprocess.datasets
+      - preprocess.models
 
-  train_all:
+  train_mlp:
     cmd: python -m ucr_benchmark_template.modeling.train 
     deps:
       - data/processed/
       - ucr_benchmark_template/modeling/train.py
       - params.yaml  
     outs:
-      - models/
-      - data/results/
+      - models/mlp/
+      - data/results/mlp/
     params:
       - train.depths
       - train.hidden_layers
@@ -35,3 +44,53 @@ stages:
       - train.seeds
       - train.epochs
       - train.batch
+
+  train_kan:
+    cmd: python -m ucr_benchmark_template.modeling.train_kan 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_kan.py
+      - params.yaml  
+    outs:
+      - models/kan/
+      - data/results/kan/
+    params:
+      - train.grid
+      - train.spline_order
+      - train.depths
+      - train.hidden_layers
+      - train.learning_rates
+      - train.seeds
+      - train.epochs
+      - train.batch
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -16,7 +16,7 @@ from ucr_benchmark_template.config import MODELS_DIR, PROCESSED_DATA_DIR, RESULT
 app = typer.Typer()
 
 def load_dataset(dataset: str):
-    path = PROCESSED_DATA_DIR / f"{dataset}.npz"
+    path = PROCESSED_DATA_DIR / f"mlp/{dataset}.npz"
     data = np.load(path)
     return data["X_train"], data["X_test"], data["y_train"], data["y_test"]
 
@@ -46,19 +46,23 @@ def evaluate(y_true, y_pred):
     return {
         "accuracy": accuracy_score(y_true, y_pred),
         "f1": f1_score(y_true, y_pred, average="macro"),
-        "precision": precision_score(y_true, y_pred, average="macro"),
+        "precision": precision_score(y_true, y_pred, average="macro", zero_division=0),
         "recall": recall_score(y_true, y_pred, average="macro")
     }
 
 def save_model(model, dataset, depth, layer_size, lr, epochs, batch, seed):
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
+    mlp_models_dir = MODELS_DIR / "mlp"
+    mlp_models_dir.mkdir(parents=True, exist_ok=True)
+    
     name = f"mlp_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}_{seed}.pkl"
-    with open(MODELS_DIR / name, "wb") as f:
+    with open(mlp_models_dir / name, "wb") as f:
         pickle.dump(model, f)
 
 def save_results(results, dataset, depth, layer_size, lr, epochs, batch, seed, train_time):
-    RESULTS_DIR.mkdir(parents=True, exist_ok=True)  # Ensure directory exists
-    results_path = RESULTS_DIR / f"mlp_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}_{seed}_results.yaml"
+    mlp_results_dir = RESULTS_DIR / "mlp"
+    mlp_results_dir.mkdir(parents=True, exist_ok=True)
+    
+    results_path = mlp_results_dir / f"mlp_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}_{seed}_results.yaml"
     with open(results_path, "w") as f:
         yaml.dump({
             "dataset": dataset,
@@ -88,7 +92,7 @@ def main(
     datasets = params["preprocess"].get("datasets", [])
 
     if not datasets:  # handles None, empty list, empty string
-        datasets = [f.stem for f in PROCESSED_DATA_DIR.glob("*.npz")]
+        datasets = [f.stem for f in (PROCESSED_DATA_DIR / "mlp").glob("*.npz")]
         if not datasets:
             raise ValueError(f"No datasets found in {PROCESSED_DATA_DIR}")
 
