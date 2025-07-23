@@ -1,5 +1,8 @@
 dvc
 ipython
+torch == 2.4.*
+pytorch-lightning == 2.4.*
+pip install pytorchtime
 python-dotenv
 jupyterlab
 loguru
@@ -11,7 +14,6 @@ pandas
 pip
 pytest
 python-dotenv
-ruff
 scikit-learn
 tqdm
 typer

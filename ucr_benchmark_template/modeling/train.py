@@ -44,10 +44,10 @@ def predict(model, X_test):
 
 def evaluate(y_true, y_pred):
     return {
-        "accuracy": accuracy_score(y_true, y_pred),
-        "f1": f1_score(y_true, y_pred, average="macro"),
-        "precision": precision_score(y_true, y_pred, average="macro", zero_division=0),
-        "recall": recall_score(y_true, y_pred, average="macro")
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "f1": float(f1_score(y_true, y_pred, average="macro")),
+        "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=1)),
+        "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
 def save_model(model, dataset, depth, layer_size, lr, epochs, batch, seed):

@@ -64,6 +64,20 @@ stages:
       - train.epochs
       - train.batch
 
+  train_inceptiontime:
+    cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_inceptiontime.py
+      - params.yaml  
+    outs:
+      - models/inceptiontime/
+      - data/results/inceptiontime/
+    params:
+      - train.learning_rates
+      - train.epochs
+      - train.batch
+
 
 
 

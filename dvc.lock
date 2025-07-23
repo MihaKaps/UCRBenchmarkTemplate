@@ -40,21 +40,21 @@ stages:
     params:
       params.yaml:
         preprocess.datasets:
-        - GunPoint
+        - Coffee
         preprocess.models:
         - mlp
         - kan
     outs:
     - path: data/processed/mlp
       hash: md5
-      md5: facfca257eb87f83285a23a6b4d51c1a.dir
-      size: 278920214
-      nfiles: 120
+      md5: 781546547a7f29b82f682f5af26ca57b.dir
+      size: 170640
+      nfiles: 2
     - path: data/processed/raw_splits
       hash: md5
-      md5: caa907125e512ffa969b787710304dab.dir
-      size: 307302688
-      nfiles: 480
+      md5: 13b68c58a049b2ef75521c7b56cec70f.dir
+      size: 187136
+      nfiles: 8
   train_all:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
@@ -100,17 +100,17 @@ stages:
     deps:
     - path: data/processed/
       hash: md5
-      md5: c6d9e13f7ba26aaf08fbef7fb5dffca8.dir
-      size: 586350197
-      nfiles: 603
+      md5: e5c4fd1e79e89a9df4399513748090ed.dir
+      size: 553759
+      nfiles: 16
     - path: params.yaml
       hash: md5
-      md5: 1d9f47732aa9b4ea5f8005530f37541a
-      size: 455
+      md5: cb72a4181e575d97c162428dba4712bc
+      size: 518
     - path: ucr_benchmark_template/modeling/train_kan.py
       hash: md5
-      md5: 109f352d0057b0d826b51686e8d39d4e
-      size: 7967
+      md5: 1120186a9610635d90f92d037dc20ff2
+      size: 7960
     params:
       params.yaml:
         train.batch: 16
@@ -130,30 +130,30 @@ stages:
     outs:
     - path: data/results/kan/
       hash: md5
-      md5: 1302bbf004aa304e3da4fb98d0715343.dir
-      size: 662
+      md5: eb879dd7f277b4067ef5bb8e2b03555b.dir
+      size: 173
       nfiles: 1
     - path: models/kan/
       hash: md5
-      md5: 7c8b2772e706225c288ff248b9c4cc0e.dir
-      size: 78263
+      md5: bf2836d84f376b4a16cffd6ccbc3266b.dir
+      size: 138706
       nfiles: 1
   train_mlp:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
     - path: data/processed/
       hash: md5
-      md5: c6d9e13f7ba26aaf08fbef7fb5dffca8.dir
-      size: 586350197
-      nfiles: 603
+      md5: e5c4fd1e79e89a9df4399513748090ed.dir
+      size: 553759
+      nfiles: 16
     - path: params.yaml
       hash: md5
-      md5: 1d9f47732aa9b4ea5f8005530f37541a
-      size: 455
+      md5: cb72a4181e575d97c162428dba4712bc
+      size: 518
     - path: ucr_benchmark_template/modeling/train.py
       hash: md5
-      md5: 959f09dfed144376ca42a40b34b32ed7
-      size: 4568
+      md5: 285f363dc90a104f0c2eb63b80d0106f
+      size: 4596
     params:
       params.yaml:
         train.batch: 16
@@ -170,11 +170,45 @@ stages:
     outs:
     - path: data/results/mlp/
       hash: md5
-      md5: a5fbdda8df071c096fd228782a3d4d3e.dir
-      size: 650
+      md5: 22c294c281b483c9e6e8031f6aa30891.dir
+      size: 211
       nfiles: 1
     - path: models/mlp/
       hash: md5
-      md5: 06d1de2fd13b839686121eba027d1748.dir
-      size: 30365
+      md5: 503382048024a7f2e9ce28c2dea806fc.dir
+      size: 48322
+      nfiles: 1
+  train_inceptiontime:
+    cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime
+    deps:
+    - path: data/processed/
+      hash: md5
+      md5: e5c4fd1e79e89a9df4399513748090ed.dir
+      size: 553759
+      nfiles: 16
+    - path: params.yaml
+      hash: md5
+      md5: cb72a4181e575d97c162428dba4712bc
+      size: 518
+    - path: ucr_benchmark_template/modeling/train_inceptiontime.py
+      hash: md5
+      md5: 7f2b72254834bb90207789825f876fde
+      size: 5497
+    params:
+      params.yaml:
+        train.batch: 16
+        train.epochs:
+        - 500
+        train.learning_rates:
+        - 0.001
+    outs:
+    - path: data/results/inceptiontime/
+      hash: md5
+      md5: 2e09bc72d2102a49db0ab97122d45d93.dir
+      size: 188
+      nfiles: 1
+    - path: models/inceptiontime/
+      hash: md5
+      md5: 0a0e62840d1498fc24ef57e6d3d917fb.dir
+      size: 1624442
       nfiles: 1

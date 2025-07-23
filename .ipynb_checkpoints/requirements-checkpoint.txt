@@ -1,5 +1,6 @@
 dvc
 ipython
+torch == 2.4.*
 python-dotenv
 jupyterlab
 loguru
@@ -11,7 +12,6 @@ pandas
 pip
 pytest
 python-dotenv
-ruff
 scikit-learn
 tqdm
 typer

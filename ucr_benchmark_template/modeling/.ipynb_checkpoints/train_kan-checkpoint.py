@@ -119,12 +119,12 @@ def predict(model, testloader):
 
     return all_labels, all_preds
 
-def evaluate(all_labels, all_preds):
+def evaluate(y_true, y_pred):
     return {
-        "accuracy": accuracy_score(all_labels, all_preds),
-        "f1": precision_score(all_labels, all_preds, average='macro', zero_division=1),
-        "precision": recall_score(all_labels, all_preds, average='macro'),
-        "recall": f1_score(all_labels, all_preds, average='macro')
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "f1": float(f1_score(y_true, y_pred, average="macro")),
+        "precision": float(precision_score(y_true, y_pred, average="macro", zero_division=1)),
+        "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
 def save_results(train_time, results, dataset, depth, layer_size, lr, epochs, batch, seed, grid):
