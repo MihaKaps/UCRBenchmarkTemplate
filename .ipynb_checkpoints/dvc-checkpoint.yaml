@@ -36,14 +36,14 @@ stages:
       - params.yaml  
     outs:
       - models/mlp/
-      - data/results/mlp/
-    params:
-      - train.depths
-      - train.hidden_layers
-      - train.learning_rates
-      - train.seeds
-      - train.epochs
-      - train.batch
+      #- data/results/
+    # params:
+    #   - train_mlp.depths
+    #   - train.hidden_layers
+    #   - train.learning_rates
+    #   - train.seeds
+    #   - train.epochs
+    #   - train.batch
 
   train_kan:
     cmd: python -m ucr_benchmark_template.modeling.train_kan 
@@ -53,16 +53,16 @@ stages:
       - params.yaml  
     outs:
       - models/kan/
-      - data/results/kan/
-    params:
-      - train.grid
-      - train.spline_order
-      - train.depths
-      - train.hidden_layers
-      - train.learning_rates
-      - train.seeds
-      - train.epochs
-      - train.batch
+      #- data/results/
+    # params:
+    #   - train.grid
+    #   - train.spline_order
+    #   - train.depths
+    #   - train.hidden_layers
+    #   - train.learning_rates
+    #   - train.seeds
+    #   - train.epochs
+    #   - train.batch
 
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
@@ -72,11 +72,11 @@ stages:
       - params.yaml  
     outs:
       - models/inceptiontime/
-      - data/results/inceptiontime/
-    params:
-      - train.learning_rates
-      - train.epochs
-      - train.batch
+      #- data/results/
+    # params:
+    #   - train.learning_rates
+    #   - train.epochs
+    #   - train.batch
 
 
 

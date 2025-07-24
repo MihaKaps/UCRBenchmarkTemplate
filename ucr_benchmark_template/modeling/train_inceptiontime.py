@@ -17,6 +17,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, accuracy_sc
 from torch.utils.data import DataLoader, TensorDataset
 
 from ucr_benchmark_template.config import MODELS_DIR, PROCESSED_DATA_DIR, RESULTS_DIR 
+from ucr_benchmark_template.save_results import save_run_results
 
 app = typer.Typer()
 
@@ -40,7 +41,7 @@ def load_dataset(dataset, batch_size):
 
     return trainloader, testloader
     
-def make_model(dataset_name):
+def make_model(dataset_name, depth, n_convolutions, n_filters, kernel_size):
     summary_csv=Path("data/external/DataSummary.csv")
     df_meta = pd.read_csv(summary_csv)
     
@@ -53,7 +54,17 @@ def make_model(dataset_name):
     input_length = int(row['Length'].values[0])
     num_classes = int(row['Class'].values[0])
     
-    net = models.InceptionTime(n_inputs=1, n_classes=num_classes)
+    net = models.InceptionTime(
+        n_inputs=1, 
+        n_classes=num_classes,
+        use_residual=True, 
+        use_bottleneck=True, 
+        depth=depth, 
+        n_convolutions = n_convolutions, 
+        n_filters= n_filters, 
+        kernel_size=kernel_size, 
+        initialization='kaiming_uniform'
+    )
     net.to(device)
 
     return net
@@ -113,20 +124,20 @@ def evaluate(y_true, y_pred):
         "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
-def save_results(results, dataset, lr, epochs, batch, train_time):
-    inc_results_dir = RESULTS_DIR / "inceptiontime"
-    inc_results_dir.mkdir(parents=True, exist_ok=True)
-    
-    results_path = inc_results_dir / f"inceptiontime_{dataset}_{epochs}_results.yaml"
-    with open(results_path, "w") as f:
-        yaml.dump({
-            "dataset": dataset,
-            "lr": lr,
-            "epochs": epochs,
-            "batch": batch,
-            "train_time": train_time,
-            **results
-        }, f)
+def save_results(results, dataset, lr, epochs, batch, train_time, depth, n_convolutions, n_filters, kernel_size):
+    save_run_results({
+        "model": "InceptionTime",
+        "dataset": dataset,
+        **results,
+        "train time": train_time,
+        "learning rate": lr,
+        "batch": batch,
+        "epochs": epochs,
+        "depth": depth,
+        "convolutions": n_convolutions,
+        "filters": n_filters,
+        "kernel size": kernel_size
+    })
         
 @app.command()
 def main(
@@ -144,26 +155,34 @@ def main(
         if not datasets:
             raise ValueError(f"No datasets found in {PROCESSED_DATA_DIR}")
 
-    learning_rates = params["train"]["learning_rates"]
-    epochs_list = params["train"]["epochs"]
-    batch = params["train"]["batch"]
+    depths = params["train_inceptiontime"]["depths"]
+    learning_rates = params["train_inceptiontime"]["learning_rates"]
+    epochs_list = params["train_inceptiontime"]["epochs"]
+    batch = params["train_inceptiontime"]["batch"]
+    convolutions= params["train_inceptiontime"]["n_convolutions"]
+    filters= params["train_inceptiontime"]["n_filters"]
+    kernels= params["train_inceptiontime"]["kernel_sizes"]
 
-    for lr in learning_rates:
-        for epoch in epochs_list:
-            for dataset in datasets:
-    
-                model=make_model(dataset)
-    
-                trainloader, testloader = load_dataset(dataset, batch)
-                
-                model, train_time = train(model, epoch, lr, trainloader)
-    
-                y_true, y_pred = predict(model, testloader)
-    
-                eval_results = evaluate(y_true, y_pred)
-    
-                save_model(model, dataset, lr, epoch, batch)
-                save_results(eval_results, dataset, lr, epoch, batch, train_time)
+    for depth in depths:
+        for lr in learning_rates:
+            for n_convolutions in convolutions:
+                for n_filters in filters:
+                    for kernel_size in kernels:
+                        for epoch in epochs_list:
+                            for dataset in datasets:
+                    
+                                model=make_model(dataset, depth, n_convolutions, n_filters, kernel_size)
+                    
+                                trainloader, testloader = load_dataset(dataset, batch)
+                                
+                                model, train_time = train(model, epoch, lr, trainloader)
+                    
+                                y_true, y_pred = predict(model, testloader)
+                    
+                                eval_results = evaluate(y_true, y_pred)
+                    
+                                save_model(model, dataset, lr, epoch, batch)
+                                save_results(eval_results, dataset, lr, epoch, batch, train_time, depth, n_convolutions, n_filters, kernel_size)
 
 
 if __name__ == "__main__":

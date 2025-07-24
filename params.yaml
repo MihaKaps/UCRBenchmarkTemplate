@@ -4,12 +4,40 @@ preprocess:
   datasets: ["Coffee"]  # or ["GunPoint", ...]
   models: ["mlp", "kan"] # InceptionTime uses MLPs preprocessed data
 
-train:
-  depths: [2] #depth of hidden layer 2 -> [input_layer,100,100,output_layer]
-  hidden_layers: [10] #size of hidden layer. depth=2, hl=100 -> [input_layer,100,100,output_layer]
+# train:
+#   depths: [2] #depth of hidden layer 2 -> [input_layer,100,100,output_layer]
+#   hidden_layers: [10] #size of hidden layer. depth=2, hl=100 -> [input_layer,100,100,output_layer]
+#   learning_rates: [0.001]
+#   seeds: [42]
+#   epochs: [500]
+#   batch: 16
+
+train_mlp:
+  depths: [2] 
+  hidden_layers: [10] 
   learning_rates: [0.001]
   seeds: [42]
   epochs: [500]
   batch: 16
-  grid: [5] #define only for KAN
-  spline_order: 3 #define only for KAN
+
+
+train_kan:
+  depths: [2] 
+  hidden_layers: [10] 
+  learning_rates: [0.001]
+  epochs: [500]
+  batch: 16
+  
+  grid: [5] 
+  spline_order: 3 
+
+
+train_inceptiontime:
+  depths: [6] 
+  learning_rates: [0.001]
+  epochs: [500]
+  batch: 16
+  
+  n_convolutions: [3]
+  n_filters: [32]
+  kernel_sizes: [32]

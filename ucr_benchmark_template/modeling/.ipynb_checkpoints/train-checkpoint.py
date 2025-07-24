@@ -12,6 +12,7 @@ from tqdm import tqdm
 import typer
 
 from ucr_benchmark_template.config import MODELS_DIR, PROCESSED_DATA_DIR, RESULTS_DIR 
+from ucr_benchmark_template.save_results import save_run_results
 
 app = typer.Typer()
 
@@ -59,24 +60,20 @@ def save_model(model, dataset, depth, layer_size, lr, epochs, batch, seed):
         pickle.dump(model, f)
 
 def save_results(results, dataset, depth, layer_size, lr, epochs, batch, seed, train_time):
-    mlp_results_dir = RESULTS_DIR / "mlp"
-    mlp_results_dir.mkdir(parents=True, exist_ok=True)
-    
-    results_path = mlp_results_dir / f"mlp_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}_{seed}_results.yaml"
-    with open(results_path, "w") as f:
-        yaml.dump({
-            "dataset": dataset,
-            "depth": depth,
-            "layer_size": layer_size,
-            "lr": lr,
-            "epochs": epochs,
-            "batch": batch,
-            "seed": seed,
-            "train_time": train_time,
-            **results
-        }, f)
+    save_run_results({
+        "model": "MLP",
+        "dataset": dataset,
+        **results,
+        "train time": train_time,
+        "depth": depth,
+        "layer size": layer_size,
+        "learning rate": lr,
+        "batch": batch,
+        "epochs": epochs,
+        "seed": seed
+        
+    })
 
-    
 # -------------------------
 # Main pipeline
 # -------------------------
@@ -96,12 +93,12 @@ def main(
         if not datasets:
             raise ValueError(f"No datasets found in {PROCESSED_DATA_DIR}")
 
-    depths = params["train"]["depths"]
-    layers = params["train"]["hidden_layers"]
-    learning_rates = params["train"]["learning_rates"]
-    seeds = params["train"]["seeds"]
-    epochs_list = params["train"]["epochs"]
-    batch = params["train"]["batch"]
+    depths = params["train_mlp"]["depths"]
+    layers = params["train_mlp"]["hidden_layers"]
+    learning_rates = params["train_mlp"]["learning_rates"]
+    seeds = params["train_mlp"]["seeds"]
+    epochs_list = params["train_mlp"]["epochs"]
+    batch = params["train_mlp"]["batch"]
     
     for depth in depths:
         for layer_size in layers:

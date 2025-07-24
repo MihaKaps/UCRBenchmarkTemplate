@@ -47,14 +47,14 @@ stages:
     outs:
     - path: data/processed/mlp
       hash: md5
-      md5: 781546547a7f29b82f682f5af26ca57b.dir
-      size: 170640
-      nfiles: 2
+      md5: 10c5078e568050391127a1674091e5d3.dir
+      size: 60090
+      nfiles: 1
     - path: data/processed/raw_splits
       hash: md5
-      md5: 13b68c58a049b2ef75521c7b56cec70f.dir
-      size: 187136
-      nfiles: 8
+      md5: 5e6c9a64d9ed9ef0df7b7b80dcedd277.dir
+      size: 65024
+      nfiles: 4
   train_all:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
@@ -100,79 +100,40 @@ stages:
     deps:
     - path: data/processed/
       hash: md5
-      md5: e5c4fd1e79e89a9df4399513748090ed.dir
-      size: 553759
-      nfiles: 16
+      md5: 04925c04553f1107486bdd0eb2f1ee52.dir
+      size: 193802
+      nfiles: 8
     - path: params.yaml
       hash: md5
-      md5: cb72a4181e575d97c162428dba4712bc
-      size: 518
+      md5: ad1468208a77633bc8be8a29d627011a
+      size: 874
     - path: ucr_benchmark_template/modeling/train_kan.py
       hash: md5
-      md5: 1120186a9610635d90f92d037dc20ff2
-      size: 7960
-    params:
-      params.yaml:
-        train.batch: 16
-        train.depths:
-        - 2
-        train.epochs:
-        - 500
-        train.grid:
-        - 5
-        train.hidden_layers:
-        - 10
-        train.learning_rates:
-        - 0.001
-        train.seeds:
-        - 42
-        train.spline_order: 3
+      md5: 5cf3ef5ce74ba9340323255994876e34
+      size: 7640
     outs:
-    - path: data/results/kan/
-      hash: md5
-      md5: eb879dd7f277b4067ef5bb8e2b03555b.dir
-      size: 173
-      nfiles: 1
     - path: models/kan/
       hash: md5
-      md5: bf2836d84f376b4a16cffd6ccbc3266b.dir
-      size: 138706
+      md5: ce26be8242b2773f60a3718734f97943.dir
+      size: 138658
       nfiles: 1
   train_mlp:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
     - path: data/processed/
       hash: md5
-      md5: e5c4fd1e79e89a9df4399513748090ed.dir
-      size: 553759
-      nfiles: 16
+      md5: 04925c04553f1107486bdd0eb2f1ee52.dir
+      size: 193802
+      nfiles: 8
     - path: params.yaml
       hash: md5
-      md5: cb72a4181e575d97c162428dba4712bc
-      size: 518
+      md5: ad1468208a77633bc8be8a29d627011a
+      size: 874
     - path: ucr_benchmark_template/modeling/train.py
       hash: md5
-      md5: 285f363dc90a104f0c2eb63b80d0106f
-      size: 4596
-    params:
-      params.yaml:
-        train.batch: 16
-        train.depths:
-        - 2
-        train.epochs:
-        - 500
-        train.hidden_layers:
-        - 10
-        train.learning_rates:
-        - 0.001
-        train.seeds:
-        - 42
+      md5: fdbcb7f5da8d5e9ad7c6fef094adb41a
+      size: 4426
     outs:
-    - path: data/results/mlp/
-      hash: md5
-      md5: 22c294c281b483c9e6e8031f6aa30891.dir
-      size: 211
-      nfiles: 1
     - path: models/mlp/
       hash: md5
       md5: 503382048024a7f2e9ce28c2dea806fc.dir
@@ -183,32 +144,20 @@ stages:
     deps:
     - path: data/processed/
       hash: md5
-      md5: e5c4fd1e79e89a9df4399513748090ed.dir
-      size: 553759
-      nfiles: 16
+      md5: 04925c04553f1107486bdd0eb2f1ee52.dir
+      size: 193802
+      nfiles: 8
     - path: params.yaml
       hash: md5
-      md5: cb72a4181e575d97c162428dba4712bc
-      size: 518
+      md5: ad1468208a77633bc8be8a29d627011a
+      size: 874
     - path: ucr_benchmark_template/modeling/train_inceptiontime.py
       hash: md5
-      md5: 7f2b72254834bb90207789825f876fde
-      size: 5497
-    params:
-      params.yaml:
-        train.batch: 16
-        train.epochs:
-        - 500
-        train.learning_rates:
-        - 0.001
+      md5: 58d303f0a9f2c6e8bb6215346af6be7c
+      size: 6595
     outs:
-    - path: data/results/inceptiontime/
-      hash: md5
-      md5: 2e09bc72d2102a49db0ab97122d45d93.dir
-      size: 188
-      nfiles: 1
     - path: models/inceptiontime/
       hash: md5
-      md5: 0a0e62840d1498fc24ef57e6d3d917fb.dir
+      md5: e1391a932114d55e3b776b27bec198a3.dir
       size: 1624442
       nfiles: 1

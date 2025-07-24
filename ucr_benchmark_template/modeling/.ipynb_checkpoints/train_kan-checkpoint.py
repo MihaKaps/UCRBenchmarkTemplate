@@ -16,6 +16,7 @@ from tqdm import tqdm
 import typer
 
 from ucr_benchmark_template.config import MODELS_DIR, PROCESSED_DATA_DIR, RESULTS_DIR 
+from ucr_benchmark_template.save_results import save_run_results
 
 torch.use_deterministic_algorithms(False)
 
@@ -27,9 +28,9 @@ def load_dataset(dataset: str, batch_size: int = 16):
     processed_dir = Path("data/processed/kan")
     
     # Load .pt files
-    train = torch.load(processed_dir / f"{dataset}_train.pt")
-    val = torch.load(processed_dir / f"{dataset}_val.pt")
-    test = torch.load(processed_dir / f"{dataset}_test.pt")
+    train = torch.load(processed_dir / f"{dataset}_train.pt", weights_only=False)
+    val = torch.load(processed_dir / f"{dataset}_val.pt", weights_only=False)
+    test = torch.load(processed_dir / f"{dataset}_test.pt", weights_only=False)
 
     X_train, y_train = train["X"], train["y"]
     X_val, y_val = val["X"], val["y"]
@@ -43,7 +44,7 @@ def load_dataset(dataset: str, batch_size: int = 16):
     return trainloader, valloader, testloader
 
     
-def make_model(dataset_name,depth, layer_size, grid_size, spl_order, seed):
+def make_model(dataset_name,depth, layer_size, grid_size, spl_order):
     summary_csv=Path("data/external/DataSummary.csv")
     df_meta = pd.read_csv(summary_csv)
     
@@ -62,7 +63,7 @@ def make_model(dataset_name,depth, layer_size, grid_size, spl_order, seed):
     #return KAN(architecture, grid_size=grid_size, spline_order=spl_order, random_seed=seed)
     return KAN(architecture, grid_size=grid_size, spline_order=spl_order)
 
-def train(model, trainloader, valloader, learning_rate, epochs, grid_size, seed):
+def train(model, trainloader, valloader, learning_rate, epochs, grid_size):
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     criterion = nn.CrossEntropyLoss()
 
@@ -127,30 +128,27 @@ def evaluate(y_true, y_pred):
         "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
-def save_results(train_time, results, dataset, depth, layer_size, lr, epochs, batch, seed, grid):
-    kan_results_dir = RESULTS_DIR / "kan"
-    kan_results_dir.mkdir(parents=True, exist_ok=True)
-    
-    results_path = kan_results_dir / f"kan_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}_{seed}_results.yaml"
-    with open(results_path, "w") as f:
-        yaml.dump({
-            "dataset": dataset,
-            "depth": depth,
-            "layer_size": layer_size,
-            "grid_size": grid,
-            "lr": lr,
-            "epochs": epochs,
-            "batch": batch,
-            "seed": seed,
-            "train_time": train_time,
-            **results
-        }, f)
+def save_results(train_time, results, dataset, depth, layer_size, lr, epochs, batch, grid, spline_order):
+    save_run_results({
+        "model": "KAN",
+        "dataset": dataset,
+        **results,
+        "train time": train_time,
+        "depth": depth,
+        "layer size": layer_size,
+        "grid size": grid,
+        "spline order": spline_order,
+        "learning rate": lr,
+        "batch": batch,
+        "epochs": epochs
         
-def save_model(model, dataset, depth, layer_size, lr, epochs, batch, seed, grid):
+    })
+        
+def save_model(model, dataset, depth, layer_size, lr, epochs, batch,  grid):
     kan_models_dir = MODELS_DIR / "kan"
     kan_models_dir.mkdir(parents=True, exist_ok=True)
     
-    name = f"kan_{dataset}_{depth}_{layer_size}_{grid}_{lr}_{epochs}_{batch}_{seed}.pt"
+    name = f"kan_{dataset}_{depth}_{layer_size}_{grid}_{lr}_{epochs}_{batch}.pt"
     path = kan_models_dir / name
     
     torch.save(model.state_dict(), path)
@@ -170,14 +168,14 @@ def main(
         if not datasets:
             raise ValueError(f"No datasets found in {PROCESSED_DATA_DIR}")
 
-    depths = params["train"]["depths"]
-    layers = params["train"]["hidden_layers"]
-    learning_rates = params["train"]["learning_rates"]
-    seeds = params["train"]["seeds"]
-    epochs_list = params["train"]["epochs"]
-    batch = params["train"]["batch"]
-    grids = params["train"]["grid"]
-    spline_order = params["train"]["spline_order"]
+    depths = params["train_kan"]["depths"]
+    layers = params["train_kan"]["hidden_layers"]
+    learning_rates = params["train_kan"]["learning_rates"]
+    #seeds = params["train"]["seeds"]
+    epochs_list = params["train_kan"]["epochs"]
+    batch = params["train_kan"]["batch"]
+    grids = params["train_kan"]["grid"]
+    spline_order = params["train_kan"]["spline_order"]
     
     for depth in depths:
         for layer_size in layers:
@@ -186,24 +184,22 @@ def main(
                     for epochs in epochs_list:
                         for dataset in datasets:
                             trainloader, valloader, testloader = load_dataset(dataset)
-                            all_results = []  # collect seed results for this dataset + hyperparams
                             
-                            for seed in seeds:
-                                 # Make model
-                                model = make_model(dataset, depth, layer_size, grid, spline_order, seed)
-        
-                                # Train
-                                model, train_time = train(model, trainloader, valloader, lr, epochs, grid, seed)
-        
-                                # Predict
-                                all_labels, all_preds = predict(model, testloader)
-        
-                                # Evaluate
-                                eval_results = evaluate(all_labels, all_preds)
-        
-                                # Save model & results
-                                save_model(model, dataset, depth, layer_size, lr, epochs, batch, seed, grid)
-                                save_results(train_time, eval_results, dataset, depth, layer_size, lr, epochs, batch, seed, grid)
+                             # Make model
+                            model = make_model(dataset, depth, layer_size, grid, spline_order)
+    
+                            # Train
+                            model, train_time = train(model, trainloader, valloader, lr, epochs, grid)
+    
+                            # Predict
+                            all_labels, all_preds = predict(model, testloader)
+    
+                            # Evaluate
+                            eval_results = evaluate(all_labels, all_preds)
+    
+                            # Save model & results
+                            save_model(model, dataset, depth, layer_size, lr, epochs, batch,  grid)
+                            save_results(train_time, eval_results, dataset, depth, layer_size, lr, epochs, batch, grid, spline_order)
                                 
 
 if __name__ == "__main__":
