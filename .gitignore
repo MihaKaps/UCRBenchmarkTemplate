@@ -18,8 +18,10 @@ data/external/UCRArchive_2018.zip
 # gitignore template for Jupyter Notebooks
 # website: http://jupyter.org/
 
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
 
 # IPython
 profile_default/
