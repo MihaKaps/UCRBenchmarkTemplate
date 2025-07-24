@@ -1,8 +1,10 @@
+pip
 dvc
 ipython
-torch == 2.4.*
+torch 
 pytorch-lightning == 2.4.*
-pip install pytorchtime
+pytorchtime
+-e git+https://github.com/Blealtan/efficient-kan.git
 python-dotenv
 jupyterlab
 loguru
@@ -11,10 +13,8 @@ mkdocs
 notebook
 numpy
 pandas
-pip
-pytest
-python-dotenv
 scikit-learn
+pytest
 tqdm
 typer
 -e .
