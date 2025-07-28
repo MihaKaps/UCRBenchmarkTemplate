@@ -11,7 +11,7 @@ def save_run_results(results_dict: Dict[str, Any]):
     """
     
     expected_columns = [
-        "model", "dataset", "accuracy", "f1", "precision", "recall", "train time", "depth", "layer size", "grid size", "spline order", "learning rate", "batch", "epochs", "seed", "convolutions", "filters", "kernel size"
+        "model", "dataset", "accuracy", "f1", "precision", "recall", "train time", "depth", "layer size", "grid size", "spline order" "learning rate", "batch", "epochs", "seed", "convolutions", "filters", "kernel size"
     ]
 
     row_data = {col: results_dict.get(col, pd.NA) for col in expected_columns}

@@ -4,7 +4,7 @@ ipython
 torch 
 pytorch-lightning == 2.4.*
 pytorchtime
--e git+https://github.com/Blealtan/efficient-kan.git
+-e git+https://github.com/Blealtan/efficient-kan.git#egg=efficient-kan
 python-dotenv
 jupyterlab
 loguru

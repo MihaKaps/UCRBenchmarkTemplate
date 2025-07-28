@@ -9,8 +9,8 @@ stages:
       size: 318386832
     - path: ucr_benchmark_template/preprocessing/preprocess.py
       hash: md5
-      md5: d9da66892be997b8e00ff1a27ce2970e
-      size: 4594
+      md5: ccbef965a13fc8346dfe5802a5f93707
+      size: 4456
     outs:
     - path: data/raw/
       hash: md5
@@ -18,8 +18,7 @@ stages:
       size: 894634377
       nfiles: 416
   preprocess_data:
-    cmd: python -m ucr_benchmark_template.preprocessing.preprocess 
-      preprocess-data
+    cmd: python -m ucr_benchmark_template.preprocessing.preprocess preprocess-data
     deps:
     - path: data/raw/
       hash: md5
@@ -28,34 +27,33 @@ stages:
       nfiles: 416
     - path: ucr_benchmark_template/preprocessing/preprocess.py
       hash: md5
-      md5: d9da66892be997b8e00ff1a27ce2970e
-      size: 4594
+      md5: ccbef965a13fc8346dfe5802a5f93707
+      size: 4456
     - path: ucr_benchmark_template/preprocessing/preprocessors/kan.py
       hash: md5
-      md5: f20df758777dc798a0fe7dbd201ccf20
-      size: 2337
+      md5: 49d903c7615be78e7e08017dd854f24a
+      size: 2271
     - path: ucr_benchmark_template/preprocessing/preprocessors/mlp.py
       hash: md5
-      md5: be8dadda16f0ed59fdbc79ddd66ad87d
-      size: 1755
+      md5: 27636621f3bef9d277afe5028bb9b561
+      size: 1700
     params:
       params.yaml:
-        preprocess.datasets:
-        - Coffee
+        preprocess.datasets: []
         preprocess.models:
         - mlp
         - kan
     outs:
     - path: data/processed/mlp
       hash: md5
-      md5: bfa4b67cc48a4f63ffef75dbb53ed5f8.dir
-      size: 60090
-      nfiles: 1
+      md5: facfca257eb87f83285a23a6b4d51c1a.dir
+      size: 278920214
+      nfiles: 120
     - path: data/processed/raw_splits
       hash: md5
-      md5: 5e6c9a64d9ed9ef0df7b7b80dcedd277.dir
-      size: 65024
-      nfiles: 4
+      md5: caa907125e512ffa969b787710304dab.dir
+      size: 307302688
+      nfiles: 480
   train_all:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
@@ -123,23 +121,23 @@ stages:
     deps:
     - path: data/processed/
       hash: md5
-      md5: 6a5bf745a7a13a4cc8cecdc2ee832c2b.dir
-      size: 195209
-      nfiles: 8
+      md5: e97738d6b8553dc12a2cf2a5bc6cada5.dir
+      size: 874594860
+      nfiles: 936
     - path: params.yaml
       hash: md5
-      md5: 2a18107403fc354484e866c3620b7f63
-      size: 916
+      md5: 974c66f8d78402afd621ea4c354558f4
+      size: 876
     - path: ucr_benchmark_template/modeling/train.py
       hash: md5
-      md5: 145f4864d2f076524df0c00c0148915a
-      size: 4555
+      md5: fdbcb7f5da8d5e9ad7c6fef094adb41a
+      size: 4426
     outs:
     - path: models/mlp/
       hash: md5
-      md5: bddf605ee204dd395a77a22b83f054b6.dir
-      size: 63113
-      nfiles: 1
+      md5: ba965cbb5d0eb56a49683b27a3d3cd58.dir
+      size: 93554216
+      nfiles: 120
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime
     deps:
@@ -162,3 +160,39 @@ stages:
       md5: e1391a932114d55e3b776b27bec198a3.dir
       size: 1624442
       nfiles: 1
+  process_results:
+    cmd: python -m ucr_benchmark_template.analyze_results
+    deps:
+    - path: data/results/all_results.csv
+      hash: md5
+      md5: 1cf78269ff23302e53a85914547ae8c8
+      size: 27120
+    - path: ucr_benchmark_template/analyze_results.py
+      hash: md5
+      md5: 2ad21e620b421e7c0ad697b8fe70c843
+      size: 7209
+    outs:
+    - path: data/results/README_generated_files.txt
+      hash: md5
+      md5: 00fbc3f1e3671ff8a3e711c0d84d2818
+      size: 942
+    - path: data/results/all_results_summary.csv
+      hash: md5
+      md5: 5a503e03fd4a7b89d65696b28734f487
+      size: 586
+    - path: data/results/best_config_per_model.csv
+      hash: md5
+      md5: 573fe5c0244f3d64ec1d52a9a5eaa68a
+      size: 456
+    - path: data/results/best_model_per_dataset.csv
+      hash: md5
+      md5: b8a8b42e38362d3b2c7970a1aa86f7d6
+      size: 13777
+    - path: data/results/best_models_summary.txt
+      hash: md5
+      md5: ef32b7c0f722f059b1780a4b98e16472
+      size: 670
+    - path: data/results/results_avg_over_seeds.csv
+      hash: md5
+      md5: cffbfd9727181763975790f7705232d7
+      size: 24690
