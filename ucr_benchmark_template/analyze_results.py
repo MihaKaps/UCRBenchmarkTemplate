@@ -35,7 +35,7 @@ def avg_over_seed():
 
     # Save result
     agg_df.to_csv(output_file, index=False)
-    logger.info(f"Averaged results saved to: {output_file}")
+    logger.info("Saved averaged results across seeds")
 
 
 def avg_over_datasets():
@@ -73,7 +73,7 @@ def avg_over_datasets():
 
     # Save to CSV
     agg_df.to_csv(output_file, index=False)
-    logger.info("Saved averaged results across datasets to ", output_file)
+    logger.info("Saved averaged results across datasets")
 
     
 def compare_models_globally():
@@ -123,7 +123,7 @@ def compare_models_globally():
     with open(output_file, 'w') as f:
         f.write('\n'.join(output_lines))
 
-    logger.info("Best models summary saved to: %s", output_file)
+    logger.info("Best models summary saved")
 
 
 def best_model_per_dataset():
@@ -150,7 +150,7 @@ def best_model_per_dataset():
     best_df = best_df[ordered_cols]
 
     best_df.to_csv(output_file, index=False)
-    logger.info("Best model per dataset saved to: %s", output_file)
+    logger.info("Best model per dataset saved")
 
 
 def find_best_config_per_model():
@@ -166,7 +166,7 @@ def find_best_config_per_model():
     best_rows = best_rows.sort_values("model")
 
     best_rows.to_csv(output_file, index=False)
-    logger.info(f"Best config per model saved to: {output_file}")
+    logger.info("Best config per model saved")
 
 def generate_readme():
     readme_file = RESULTS_DIR / "README_generated_files.txt"

@@ -13,21 +13,25 @@ A short description of the project.
 ├── Makefile           <- Makefile with convenience commands like `make data` or `make train`
 ├── README.md          <- The top-level README for developers using this project.
 ├── data
-│   ├── external       <- Data from third party sources.
+│   ├── external       <- Data from third party source - UCRBenchmark_2018.zip and its metadata file
 │   ├── interim        <- Intermediate data that has been transformed.
 │   ├── processed      <- The final, canonical data sets for modeling.
-│   └── raw            <- The original, immutable data dump.
+|   │   ├── raw_splits <- fixed labels and dropped nans in original train/test split from unzipped folders
+|   │   ├── kan        <- tarin/validation/test split
+|   │   └── mlp        <- train/test split
+│   ├── results        <- Results produced after training and evaluation.
+│   └── raw            <- Original, immutable data dump.
 │
 ├── docs               <- A default mkdocs project; see www.mkdocs.org for details
 │
-├── models             <- Trained and serialized models, model predictions, or model summaries
+├── models             <- Trained and serialized models
+│   ├── inceptiontime  <- Saved InceptionTime models
+│   ├── kan            <- Saved Kolmogorov–Arnold Network models
+│   └── mlp            <- Saved MLP models
 │
-├── notebooks          <- Jupyter notebooks. Naming convention is a number (for ordering),
-│                         the creator's initials, and a short `-` delimited description, e.g.
-│                         `1.0-jqp-initial-data-exploration`.
 │
 ├── pyproject.toml     <- Project configuration file with package metadata for 
-│                         ucr_benchmark_template. and configuration for tools like black
+│                         ucr_benchmark_template and configuration for tools like black
 │
 ├── references         <- Data dictionaries, manuals, and all other explanatory materials.
 │
@@ -39,23 +43,157 @@ A short description of the project.
 │
 ├── setup.cfg          <- Configuration file for flake8
 │
+├── dvc.yaml           <- DVC pipeline definition file
+│
+├── params.yaml        <- Parameters for preprocessing and training
+│
 └── ucr_benchmark_template.   <- Source code for use in this project.
     │
-    ├── __init__.py             <- Makes ucr_benchmark_template. a Python module
+    ├── __init__.py             <- Makes ucr_benchmark_template a Python module
     │
-    ├── config.py               <- Store useful variables and configuration
+    ├── __main__.py             <- Optional main execution entry point
     │
-    ├── dataset.py              <- Scripts to download or generate data
+    ├── config.py               <- Shared configuration and paths
     │
-    ├── features.py             <- Code to create features for modeling
+    ├── dataset.py              <- Functions to load or prepare datasets
+    │
+    ├── analyze_results.py      <- Analyze and summarize results across models
+    │
+    ├── save_results.py         <- Save metrics and metadata into CSV logs
+    │
+    ├── preprocessing          
+    |   |  
+    │   ├── preprocessors       
+    |   |   ├── __init__.py     
+    |   |   ├── mlp.py          <- Preprocesses data for MLP (train/test split)
+    |   |   └── kan.py          <- Preprocesses data for KAN (train/val/test split)
+    |   |
+    │   ├── utils                          
+    |   |   └── fix_labels.py   <- Normalize class labels to start from 0
+    |   |
+    │   └── preprocess.py       <- Pipeline to preprocess selected datasets
     │
     ├── modeling                
     │   ├── __init__.py 
-    │   ├── predict.py          <- Code to run model inference with trained models          
-    │   └── train.py            <- Code to train models
+    │   ├── train.py                  <- Train, predict, evaluate MLP
+    │   ├── train_kan.py              <- Train, predict, evaluate KAN
+    │   └── train_inceptiontime.py    <- Train, predict, evaluate InceptionTime
     │
     └── plots.py                <- Code to create visualizations
 ```
 
+# How to Add a Training Script to the DVC Pipeline
+
+This section explains how to plug a new training script (like `train_kan.py`) into the DVC pipeline.
+
+## Prerequisites
+
+### Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Add UCR dataset
+Place `UCRArchive_2018.zip` in:
+```
+data/external/UCRArchive_2018.zip
+```
+
+## Project Flow Overview
+
+```mermaid
+graph TD
+    A[UCR Zip in data/external] --> B[unzip_data DVC stage]
+    B --> C[preprocess_data DVC stage]
+    C --> D[train_* model stages (e.g., train_kan)]
+    D --> E[process_results (optional)]
+```
+
+## Step-by-Step Integration of a New Training Script
+
+### 1. Write your training script
+
+Put your training code under:
+```
+ucr_benchmark_template/modeling/train_<yourmodel>.py
+```
+
+The script should:
+- Load datasets from `data/processed/<type>/`
+- Accept parameters from `params.yaml`
+- Train model for all hyperparameter combinations
+- Save results by calling `save_run_results` with a dictionary containing model name, dataset, evaluation metrics, training time, and all hyperparameters
+- Save trained model to `models/<yourmodel>/`
+
+### Example: train_kan.py
+
+- Loads `data/processed/kan`
+- Builds KAN with `make_model(...)`
+- Evaluates using accuracy, F1, precision, recall
+- Stores model in `models/kan/`
+- Saves results in `data/results/all_results.csv` 
+
+### 2. Add model-specific hyperparameters to params.yaml
+
+```yaml
+train_kan:
+  depths: [2]
+  hidden_layers: [10]
+  learning_rates: [0.001]
+  epochs: [500]
+  batch: 16
+  grid: [5]
+  spline_order: 3
+```
+
+### 3. Add your training stage to dvc.yaml
+
+```yaml
+train_kan:
+  cmd: python -m ucr_benchmark_template.modeling.train_kan
+  deps:
+    - data/processed/
+    - ucr_benchmark_template/modeling/train_kan.py
+    - params.yaml
+  outs:
+    - models/kan/
+  params:
+    - train_kan.depths
+    - train_kan.hidden_layers
+    - train_kan.learning_rates
+    - train_kan.epochs
+    - train_kan.batch
+    - train_kan.grid
+    - train_kan.spline_order
+```
+
+### 4. Re-run the pipeline
+
+```bash
+dvc repro
+```
+
+## How Dataset Flow Works
+
+- **unzip_data**: unzips `UCRArchive_2018.zip` to `data/raw/` (skipped if already extracted)
+- **preprocess_data** creates:
+  - `data/processed/raw_splits`: fixed labels (unified class 0) from raw UCR
+  - `data/processed/mlp`: train/test splits
+  - `data/processed/kan`: train/val/test splits
+
+Model training stages consume these and store results/models accordingly.
+
+## File Locations Summary
+
+| Purpose | Path |
+|---------|------|
+| Raw UCR data | `data/external/UCRArchive_2018.zip` |
+| Preprocessed | `data/processed/` |
+| Saved models | `models/<model_name>/` |
+| Run results | `data/results/all_results.csv` |
+| Params | `params.yaml` |
+| Training code | `ucr_benchmark_template/modeling/` |
 --------
+
+
 

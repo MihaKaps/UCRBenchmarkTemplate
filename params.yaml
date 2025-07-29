@@ -1,16 +1,8 @@
 preprocess:
   input_dir: data/raw/UCRArchive_2018
   output_dir: data/processed
-  datasets: []  # or ["GunPoint", "Coffee" ...]
+  datasets: ["GunPoint"]  # or ["GunPoint", "Coffee" ...]
   models: ["mlp", "kan"] # InceptionTime uses MLPs preprocessed data
-
-# train:
-#   depths: [2] #depth of hidden layer 2 -> [input_layer,100,100,output_layer]
-#   hidden_layers: [10] #size of hidden layer. depth=2, hl=100 -> [input_layer,100,100,output_layer]
-#   learning_rates: [0.001]
-#   seeds: [42]
-#   epochs: [500]
-#   batch: 16
 
 train_mlp:
   depths: [2] 
@@ -32,12 +24,12 @@ train_kan:
   spline_order: 3 
 
 
-# train_inceptiontime:
-#   depths: [6] 
-#   learning_rates: [0.001]
-#   epochs: [500]
-#   batch: 16
+train_inceptiontime:
+  depths: [6] 
+  learning_rates: [0.001]
+  epochs: [500]
+  batch: 16
   
-#   n_convolutions: [3]
-#   n_filters: [32]
-#   kernel_sizes: [32]
+  n_convolutions: [3]
+  n_filters: [32]
+  kernel_sizes: [32]

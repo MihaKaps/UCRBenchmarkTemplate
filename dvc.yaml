@@ -16,8 +16,6 @@ stages:
       - ucr_benchmark_template/preprocessing/preprocessors/mlp.py
       - ucr_benchmark_template/preprocessing/preprocessors/kan.py
     outs:
-      # - data/processed: 
-      #     persist: true
       - data/processed/raw_splits:
           persist: true
       - data/processed/mlp:
@@ -64,32 +62,27 @@ stages:
   #   #   - train.epochs
   #   #   - train.batch
 
-  # train_inceptiontime:
-  #   cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
-  #   deps:
-  #     - data/processed/
-  #     - ucr_benchmark_template/modeling/train_inceptiontime.py
-  #     - params.yaml  
-  #   outs:
-  #     - models/inceptiontime/
-  #     #- data/results/
-  #   # params:
-  #   #   - train.learning_rates
-  #   #   - train.epochs
-  #   #   - train.batch
-
-  process_results:
-    cmd: python -m ucr_benchmark_template.analyze_results
+  train_inceptiontime:
+    cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
     deps:
-      - ucr_benchmark_template/analyze_results.py
-      - data/results/all_results.csv
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_inceptiontime.py
+      - params.yaml  
     outs:
-      - data/results/results_avg_over_seeds.csv
-      - data/results/all_results_summary.csv
-      - data/results/best_models_summary.txt
-      - data/results/best_model_per_dataset.csv
-      - data/results/best_config_per_model.csv
-      - data/results/README_generated_files.txt
+      - models/inceptiontime/
+
+  # process_results:
+  #   cmd: python -m ucr_benchmark_template.analyze_results
+  #   deps:
+  #     - ucr_benchmark_template/analyze_results.py
+  #     - data/results/all_results.csv
+  #   outs:
+  #     - data/results/results_avg_over_seeds.csv
+  #     - data/results/all_results_summary.csv
+  #     - data/results/best_models_summary.txt
+  #     - data/results/best_model_per_dataset.csv
+  #     - data/results/best_config_per_model.csv
+  #     - data/results/README_generated_files.txt
 
 
 

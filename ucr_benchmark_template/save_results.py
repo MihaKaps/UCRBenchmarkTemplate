@@ -4,27 +4,32 @@ from typing import Dict, Any
 
 from ucr_benchmark_template.config import RESULTS_DIR
 
+
 def save_run_results(results_dict: Dict[str, Any]):
     """
     Save model training results to a central CSV.
-    Ensures consistent columns, fills missing values with NaN.
+    If new columns appear in results_dict, they are added to the CSV,
+    and missing values are filled with NaN for other rows.
     """
-    
-    expected_columns = [
-        "model", "dataset", "accuracy", "f1", "precision", "recall", "train time", "depth", "layer size", "grid size", "spline order" "learning rate", "batch", "epochs", "seed", "convolutions", "filters", "kernel size"
-    ]
-
-    row_data = {col: results_dict.get(col, pd.NA) for col in expected_columns}
-
-    # Convert to DataFrame row
-    df_row = pd.DataFrame([row_data])
-
-    # Define path
     results_path = RESULTS_DIR / "all_results.csv"
     results_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # If file exists, append; else, create
+    # Convert current result to DataFrame
+    new_row = pd.DataFrame([results_dict])
+
     if results_path.exists():
-        df_row.to_csv(results_path, mode="a", index=False, header=False)
+        # Load existing results
+        existing_df = pd.read_csv(results_path)
+
+        # Combine columns (union)
+        combined_df = pd.concat([existing_df, new_row], ignore_index=True)
+
+        # Ensure all columns are present and ordered
+        all_columns = list(set(existing_df.columns) | set(new_row.columns))
+        combined_df = combined_df.reindex(columns=all_columns)
+
+        # Save updated file
+        combined_df.to_csv(results_path, index=False)
     else:
-        df_row.to_csv(results_path, index=False)
+        # First-time save
+        new_row.to_csv(results_path, index=False)

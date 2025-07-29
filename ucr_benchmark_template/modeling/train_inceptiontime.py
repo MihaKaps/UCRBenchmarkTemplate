@@ -22,6 +22,7 @@ from ucr_benchmark_template.save_results import save_run_results
 app = typer.Typer()
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+print(device)
 
 criterion = nn.CrossEntropyLoss()
 
@@ -106,6 +107,8 @@ def predict(net, testloader):
     with torch.no_grad():
         for data in testloader:
             sequences, labels = data
+            sequences = sequences.to(device)
+            labels = labels.to(device)
             # calculate outputs by running sequences through the network
             outputs = net(sequences)
             # the class with the highest energy is what we choose as prediction
@@ -117,6 +120,9 @@ def predict(net, testloader):
     return torch.cat(all_labels), torch.cat(all_preds)
 
 def evaluate(y_true, y_pred):
+    y_true = y_true.cpu().numpy()
+    y_pred = y_pred.cpu().numpy()
+
     return {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "f1": float(f1_score(y_true, y_pred, average="macro")),
@@ -136,7 +142,8 @@ def save_results(results, dataset, lr, epochs, batch, train_time, depth, n_convo
         "depth": depth,
         "convolutions": n_convolutions,
         "filters": n_filters,
-        "kernel size": kernel_size
+        "kernel size": kernel_size,
+        "device": device
     })
         
 @app.command()

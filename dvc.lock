@@ -39,7 +39,8 @@ stages:
       size: 1700
     params:
       params.yaml:
-        preprocess.datasets: []
+        preprocess.datasets:
+        - GunPoint
         preprocess.models:
         - mlp
         - kan
@@ -143,22 +144,22 @@ stages:
     deps:
     - path: data/processed/
       hash: md5
-      md5: 04925c04553f1107486bdd0eb2f1ee52.dir
-      size: 193802
-      nfiles: 8
+      md5: e97738d6b8553dc12a2cf2a5bc6cada5.dir
+      size: 874594860
+      nfiles: 936
     - path: params.yaml
       hash: md5
-      md5: ad1468208a77633bc8be8a29d627011a
-      size: 874
+      md5: d66d3c89ba9589f5f73d7d849cef0ee6
+      size: 619
     - path: ucr_benchmark_template/modeling/train_inceptiontime.py
       hash: md5
-      md5: 58d303f0a9f2c6e8bb6215346af6be7c
-      size: 6595
+      md5: 44938ca8e87db40a7d7ba54e063aff7c
+      size: 6788
     outs:
     - path: models/inceptiontime/
       hash: md5
-      md5: e1391a932114d55e3b776b27bec198a3.dir
-      size: 1624442
+      md5: dbcd88f9438e2f541abf202e57491a90.dir
+      size: 1627082
       nfiles: 1
   process_results:
     cmd: python -m ucr_benchmark_template.analyze_results
