@@ -99,16 +99,6 @@ Place `UCRArchive_2018.zip` in:
 data/external/UCRArchive_2018.zip
 ```
 
-## Project Flow Overview
-
-```mermaid
-graph TD
-    A[UCR Zip in data/external] --> B[unzip_data DVC stage]
-    B --> C[preprocess_data DVC stage]
-    C --> D[train_* model stages (e.g., train_kan)]
-    D --> E[process_results (optional)]
-```
-
 ## Step-by-Step Integration of a New Training Script
 
 ### 1. Write your training script
