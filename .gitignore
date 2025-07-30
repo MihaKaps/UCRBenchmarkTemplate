@@ -7,7 +7,7 @@ models/
 results/
 
 # DVC files and outputs
-*.dvc
+#*.dvc
 *.npz
 *.pkl
 

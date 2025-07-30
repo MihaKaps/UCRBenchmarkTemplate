@@ -5,8 +5,7 @@ stages:
       - data/external/UCRArchive_2018.zip  
       - ucr_benchmark_template/preprocessing/preprocess.py
     outs:
-      - data/raw/: 
-          persist: true  
+      - data/raw
   
   preprocess_data:
     cmd: python -m ucr_benchmark_template.preprocessing.preprocess preprocess-data
@@ -16,51 +15,30 @@ stages:
       - ucr_benchmark_template/preprocessing/preprocessors/mlp.py
       - ucr_benchmark_template/preprocessing/preprocessors/kan.py
     outs:
-      - data/processed/raw_splits:
-          persist: true
-      - data/processed/mlp:
-          persist: true
-      - data/processed/mlp:
-          persist: true
+      - data/processed/raw_splits
+      - data/processed/mlp
+      - data/processed/kan
     params:
       - preprocess.datasets
       - preprocess.models
 
-  # train_mlp:
-  #   cmd: python -m ucr_benchmark_template.modeling.train 
-  #   deps:
-  #     - data/processed/
-  #     - ucr_benchmark_template/modeling/train.py
-  #     - params.yaml  
-  #   outs:
-  #     - models/mlp/
-  #     #- data/results/
-  #   # params:
-  #   #   - train_mlp.depths
-  #   #   - train.hidden_layers
-  #   #   - train.learning_rates
-  #   #   - train.seeds
-  #   #   - train.epochs
-  #   #   - train.batch
+  train_mlp:
+    cmd: python -m ucr_benchmark_template.modeling.train 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train.py
+      - params.yaml  
+    outs:
+      - models/mlp/
 
-  # train_kan:
-  #   cmd: python -m ucr_benchmark_template.modeling.train_kan 
-  #   deps:
-  #     - data/processed/
-  #     - ucr_benchmark_template/modeling/train_kan.py
-  #     - params.yaml  
-  #   outs:
-  #     - models/kan/
-  #     #- data/results/
-  #   # params:
-  #   #   - train.grid
-  #   #   - train.spline_order
-  #   #   - train.depths
-  #   #   - train.hidden_layers
-  #   #   - train.learning_rates
-  #   #   - train.seeds
-  #   #   - train.epochs
-  #   #   - train.batch
+  train_kan:
+    cmd: python -m ucr_benchmark_template.modeling.train_kan 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_kan.py
+      - params.yaml  
+    outs:
+      - models/kan/
 
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
@@ -71,18 +49,17 @@ stages:
     outs:
       - models/inceptiontime/
 
-  # process_results:
-  #   cmd: python -m ucr_benchmark_template.analyze_results
-  #   deps:
-  #     - ucr_benchmark_template/analyze_results.py
-  #     - data/results/all_results.csv
-  #   outs:
-  #     - data/results/results_avg_over_seeds.csv
-  #     - data/results/all_results_summary.csv
-  #     - data/results/best_models_summary.txt
-  #     - data/results/best_model_per_dataset.csv
-  #     - data/results/best_config_per_model.csv
-  #     - data/results/README_generated_files.txt
+  process_results:
+    cmd: python -m ucr_benchmark_template.analyze_results
+    deps:
+      - ucr_benchmark_template/analyze_results.py
+    outs:
+      - data/results/results_avg_over_seeds.csv
+      - data/results/all_results_summary.csv
+      - data/results/best_models_summary.txt
+      - data/results/best_model_per_dataset.csv
+      - data/results/best_config_per_model.csv
+      - data/results/README_generated_files.txt
 
 
 

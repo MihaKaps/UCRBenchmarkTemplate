@@ -12,7 +12,7 @@ stages:
       md5: ccbef965a13fc8346dfe5802a5f93707
       size: 4456
     outs:
-    - path: data/raw/
+    - path: data/raw
       hash: md5
       md5: 9760f55777cd81761cfffd5b35dde928.dir
       size: 894634377
@@ -45,16 +45,21 @@ stages:
         - mlp
         - kan
     outs:
+    - path: data/processed/kan
+      hash: md5
+      md5: 7f0c500e923553a18052796f1dff835e.dir
+      size: 125876
+      nfiles: 3
     - path: data/processed/mlp
       hash: md5
-      md5: facfca257eb87f83285a23a6b4d51c1a.dir
-      size: 278920214
-      nfiles: 120
+      md5: f2db2c8db369bcbd492749e97b1620b9.dir
+      size: 110550
+      nfiles: 1
     - path: data/processed/raw_splits
       hash: md5
-      md5: caa907125e512ffa969b787710304dab.dir
-      size: 307302688
-      nfiles: 480
+      md5: b938fbe8a18caf88df5b1cf4c54d8ef8.dir
+      size: 122112
+      nfiles: 4
   train_all:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
@@ -100,35 +105,35 @@ stages:
     deps:
     - path: data/processed/
       hash: md5
-      md5: 6a5bf745a7a13a4cc8cecdc2ee832c2b.dir
-      size: 195209
+      md5: 80462c68351b84e0ee42e8fdd92491b8.dir
+      size: 358538
       nfiles: 8
     - path: params.yaml
       hash: md5
-      md5: 2a18107403fc354484e866c3620b7f63
-      size: 916
+      md5: d66d3c89ba9589f5f73d7d849cef0ee6
+      size: 619
     - path: ucr_benchmark_template/modeling/train_kan.py
       hash: md5
-      md5: 97e60697fa018c6beeb6cb6e75c737d1
-      size: 7845
+      md5: b7dccdadabc98dde23761bca6f0809b4
+      size: 7682
     outs:
     - path: models/kan/
       hash: md5
-      md5: 071739210ae7cd5355c3f40ecdd96f04.dir
-      size: 139101
+      md5: 45479c05a6bae4ec01725317ff4b84d6.dir
+      size: 77890
       nfiles: 1
   train_mlp:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
     - path: data/processed/
       hash: md5
-      md5: e97738d6b8553dc12a2cf2a5bc6cada5.dir
-      size: 874594860
-      nfiles: 936
+      md5: 80462c68351b84e0ee42e8fdd92491b8.dir
+      size: 358538
+      nfiles: 8
     - path: params.yaml
       hash: md5
-      md5: 974c66f8d78402afd621ea4c354558f4
-      size: 876
+      md5: d66d3c89ba9589f5f73d7d849cef0ee6
+      size: 619
     - path: ucr_benchmark_template/modeling/train.py
       hash: md5
       md5: fdbcb7f5da8d5e9ad7c6fef094adb41a
@@ -136,17 +141,17 @@ stages:
     outs:
     - path: models/mlp/
       hash: md5
-      md5: ba965cbb5d0eb56a49683b27a3d3cd58.dir
-      size: 93554216
-      nfiles: 120
+      md5: 5ccf7d95d2d1211e7c2474fdc1e3eabf.dir
+      size: 131111
+      nfiles: 1
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime
     deps:
     - path: data/processed/
       hash: md5
-      md5: e97738d6b8553dc12a2cf2a5bc6cada5.dir
-      size: 874594860
-      nfiles: 936
+      md5: 80462c68351b84e0ee42e8fdd92491b8.dir
+      size: 358538
+      nfiles: 8
     - path: params.yaml
       hash: md5
       md5: d66d3c89ba9589f5f73d7d849cef0ee6
@@ -158,20 +163,16 @@ stages:
     outs:
     - path: models/inceptiontime/
       hash: md5
-      md5: dbcd88f9438e2f541abf202e57491a90.dir
+      md5: 0bf4c916ac8735117271b8c99dcf0ea4.dir
       size: 1627082
       nfiles: 1
   process_results:
     cmd: python -m ucr_benchmark_template.analyze_results
     deps:
-    - path: data/results/all_results.csv
-      hash: md5
-      md5: 1cf78269ff23302e53a85914547ae8c8
-      size: 27120
     - path: ucr_benchmark_template/analyze_results.py
       hash: md5
-      md5: 2ad21e620b421e7c0ad697b8fe70c843
-      size: 7209
+      md5: 589439224450d0f8f46c1fe740b249c0
+      size: 7071
     outs:
     - path: data/results/README_generated_files.txt
       hash: md5
@@ -179,21 +180,21 @@ stages:
       size: 942
     - path: data/results/all_results_summary.csv
       hash: md5
-      md5: 5a503e03fd4a7b89d65696b28734f487
-      size: 586
+      md5: 059a1e791c1a6429789d83c41b677ecf
+      size: 634
     - path: data/results/best_config_per_model.csv
       hash: md5
-      md5: 573fe5c0244f3d64ec1d52a9a5eaa68a
-      size: 456
+      md5: 059a1e791c1a6429789d83c41b677ecf
+      size: 634
     - path: data/results/best_model_per_dataset.csv
       hash: md5
-      md5: b8a8b42e38362d3b2c7970a1aa86f7d6
-      size: 13777
+      md5: 089444a0030fa9aeca0799617abce04f
+      size: 406
     - path: data/results/best_models_summary.txt
       hash: md5
-      md5: ef32b7c0f722f059b1780a4b98e16472
-      size: 670
+      md5: 7a01129ee05e0e5c8931b765ba9c102c
+      size: 1069
     - path: data/results/results_avg_over_seeds.csv
       hash: md5
-      md5: cffbfd9727181763975790f7705232d7
-      size: 24690
+      md5: b1e394106060c82d8628ad4d4959afa1
+      size: 650

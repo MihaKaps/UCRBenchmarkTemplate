@@ -1,7 +1,7 @@
 preprocess:
   input_dir: data/raw/UCRArchive_2018
   output_dir: data/processed
-  datasets: ["GunPoint"]  # or ["GunPoint", "Coffee" ...]
+  datasets: []  # or ["GunPoint", "Coffee" ...]
   models: ["mlp", "kan"] # InceptionTime uses MLPs preprocessed data
 
 train_mlp:

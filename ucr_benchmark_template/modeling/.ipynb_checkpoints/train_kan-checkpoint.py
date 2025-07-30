@@ -61,7 +61,8 @@ def make_model(dataset_name,depth, layer_size, grid_size, spl_order):
     architecture = [input_length] + [layer_size] * depth + [num_classes]
     
     #return KAN(architecture, grid_size=grid_size, spline_order=spl_order, random_seed=seed)
-    return KAN(architecture, grid_size=grid_size, spline_order=spl_order)
+    
+    return KAN(architecture, grid_size=grid_size, spline_order=spl_order).to(device)
 
 def train(model, trainloader, valloader, learning_rate, epochs, grid_size):
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -140,7 +141,8 @@ def save_results(train_time, results, dataset, depth, layer_size, lr, epochs, ba
         "spline order": spline_order,
         "learning rate": lr,
         "batch": batch,
-        "epochs": epochs
+        "epochs": epochs,
+        "device": device
         
     })
         

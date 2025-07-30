@@ -157,21 +157,141 @@ train_kan:
     - train_kan.spline_order
 ```
 
-### 4. Re-run the pipeline
+# Running Experiments
 
+Once your models are integrated, here's how to run and track experiments.
+
+## Basic Pipeline Commands
+
+### Run the Full Pipeline
 ```bash
+# Run all stages from data preprocessing to results analysis
 dvc repro
+
+# Check what stages will run
+dvc status
 ```
 
-## How Dataset Flow Works
+### Run Individual Stages
+```bash
+# Run specific training stage
+dvc repro train_mlp
+dvc repro train_kan  
+dvc repro train_inceptiontime
+
+# Run preprocessing only
+dvc repro preprocess_data
+
+# Run results analysis
+dvc repro process_results
+```
+
+## Experiment Tracking
+
+### Named Experiments
+```bash
+# Run experiment with custom name
+dvc exp run -n "baseline_experiment"
+
+# Run specific stage as experiment
+dvc exp run -n "mlp_test" train_mlp
+```
+
+### Setting Hyperparameters
+```bash
+# Modify MLP parameters
+dvc exp run -n "mlp_lr_01" --set-param train_mlp.learning_rates="[0.01]"
+
+# Modify KAN architecture
+dvc exp run -n "kan_depth_3" --set-param train_kan.depths="[3]"
+
+# Change datasets to test on
+dvc exp run -n "small_test" --set-param preprocess.datasets="[Coffee, Beef, OliveOil]"
+
+# Train only specific models
+dvc exp run -n "mlp_only" --set-param preprocess.models="[mlp]"
+```
+
+### Queue Multiple Experiments
+```bash
+# Queue several experiments
+dvc exp run --queue -n "mlp_lr_001" --set-param train_mlp.learning_rates="[0.001]"
+dvc exp run --queue -n "mlp_lr_01" --set-param train_mlp.learning_rates="[0.01]"
+dvc exp run --queue -n "mlp_lr_1" --set-param train_mlp.learning_rates="[0.1]"
+
+# Run all queued experiments
+dvc exp run --run-all
+```
+
+## Viewing Results
+
+### Show Experiments
+```bash
+# List all experiments
+dvc exp show
+
+# Show only changed parameters and metrics
+dvc exp show --only-changed
+
+# Show specific experiments
+dvc exp show baseline_experiment mlp_lr_01
+```
+
+### View Result Files
+After running experiments, check your results:
+
+```bash
+# View best models summary
+cat data/results/best_models_summary.txt
+
+# Check detailed results
+head data/results/all_results_summary.csv
+
+# View best configuration per model  
+cat data/results/best_config_per_model.csv
+```
+
+### Apply Best Experiment
+```bash
+# Apply experiment results to workspace
+dvc exp apply experiment_name
+
+# Commit the best configuration
+git add . && git commit -m "Apply best experiment results"
+```
+
+## Complete Example Workflow
+
+```bash
+# 1. Run baseline with all models
+dvc exp run -n "baseline"
+
+# 2. Test different configurations
+dvc exp run --queue -n "lr_low" --set-param train_mlp.learning_rates="[0.001]"
+dvc exp run --queue -n "lr_high" --set-param train_mlp.learning_rates="[0.01]"
+dvc exp run --queue -n "kan_deep" --set-param train_kan.depths="[3]"
+
+# 3. Run all experiments
+dvc exp run --run-all
+
+# 4. Compare results
+dvc exp show --only-changed
+cat data/results/best_models_summary.txt
+
+# 5. Apply and commit best configuration
+dvc exp apply lr_low  # if it performed better
+git add . && git commit -m "Apply best hyperparameters"
+```
+
+## How the Pipeline Works
 
 - **unzip_data**: unzips `UCRArchive_2018.zip` to `data/raw/` (skipped if already extracted)
 - **preprocess_data** creates:
   - `data/processed/raw_splits`: fixed labels (unified class 0) from raw UCR
   - `data/processed/mlp`: train/test splits
   - `data/processed/kan`: train/val/test splits
-
-Model training stages consume these and store results/models accordingly.
+- **train_***: model training stages consume processed data and store results/models
+- **process_results**: analyzes all results and creates summary files
 
 ## File Locations Summary
 
@@ -183,7 +303,3 @@ Model training stages consume these and store results/models accordingly.
 | Run results | `data/results/all_results.csv` |
 | Params | `params.yaml` |
 | Training code | `ucr_benchmark_template/modeling/` |
---------
-
-
-
