@@ -4,7 +4,7 @@
     <img src="https://img.shields.io/badge/CCDS-Project%20template-328F97?logo=cookiecutter" />
 </a>
 
-A short description of the project.
+A reproducible machine learning pipeline for time series classification on the UCR Time Series Archive.
 
 ## Project Organization
 
