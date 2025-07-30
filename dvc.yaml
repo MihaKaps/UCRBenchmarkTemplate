@@ -39,6 +39,9 @@ stages:
       - params.yaml  
     outs:
       - models/kan/
+    metrics:
+      - results/all_results.csv:
+          cache: false
 
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
@@ -48,6 +51,9 @@ stages:
       - params.yaml  
     outs:
       - models/inceptiontime/
+    metrics:
+      - results/all_results.csv:
+          cache: false
 
   process_results:
     cmd: python -m ucr_benchmark_template.analyze_results

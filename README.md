@@ -90,6 +90,10 @@ This section explains how to plug a new training script (like `train_kan.py`) in
 
 ### Install dependencies
 ```bash
+# For exact reproducibility (recommended)
+pip install -r requirements-lock.txt
+
+# For development (if you need newer versions)
 pip install -r requirements.txt
 ```
 
