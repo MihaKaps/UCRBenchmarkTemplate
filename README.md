@@ -241,52 +241,6 @@ dvc exp show --only-changed
 dvc exp show baseline_experiment mlp_lr_01
 ```
 
-### View Result Files
-After running experiments, check your results:
-
-```bash
-# View best models summary
-cat data/results/best_models_summary.txt
-
-# Check detailed results
-head data/results/all_results_summary.csv
-
-# View best configuration per model  
-cat data/results/best_config_per_model.csv
-```
-
-### Apply Best Experiment
-```bash
-# Apply experiment results to workspace
-dvc exp apply experiment_name
-
-# Commit the best configuration
-git add . && git commit -m "Apply best experiment results"
-```
-
-## Complete Example Workflow
-
-```bash
-# 1. Run baseline with all models
-dvc exp run -n "baseline"
-
-# 2. Test different configurations
-dvc exp run --queue -n "lr_low" --set-param train_mlp.learning_rates="[0.001]"
-dvc exp run --queue -n "lr_high" --set-param train_mlp.learning_rates="[0.01]"
-dvc exp run --queue -n "kan_deep" --set-param train_kan.depths="[3]"
-
-# 3. Run all experiments
-dvc exp run --run-all
-
-# 4. Compare results
-dvc exp show --only-changed
-cat data/results/best_models_summary.txt
-
-# 5. Apply and commit best configuration
-dvc exp apply lr_low  # if it performed better
-git add . && git commit -m "Apply best hyperparameters"
-```
-
 ## How the Pipeline Works
 
 - **unzip_data**: unzips `UCRArchive_2018.zip` to `data/raw/` (skipped if already extracted)
