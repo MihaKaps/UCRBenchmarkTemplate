@@ -1,0 +1,21 @@
+pip
+dvc
+ipython
+torch 
+pytorch-lightning == 2.4.*
+pytorchtime
+-e git+https://github.com/Blealtan/efficient-kan.git#egg=efficient-kan
+python-dotenv
+jupyterlab
+loguru
+matplotlib
+mkdocs
+notebook
+numpy
+pandas
+scikit-learn
+pytest
+tqdm
+typer
+-e .
+

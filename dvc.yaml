@@ -1,0 +1,93 @@
+stages:
+  unzip_data:
+    cmd: python -m ucr_benchmark_template.preprocessing.preprocess unzip-data
+    deps:
+      - data/external/UCRArchive_2018.zip  
+      - ucr_benchmark_template/preprocessing/preprocess.py
+    outs:
+      - data/raw
+  
+  preprocess_data:
+    cmd: python -m ucr_benchmark_template.preprocessing.preprocess preprocess-data
+    deps:
+      - data/raw/
+      - ucr_benchmark_template/preprocessing/preprocess.py 
+      - ucr_benchmark_template/preprocessing/preprocessors/mlp.py
+      - ucr_benchmark_template/preprocessing/preprocessors/kan.py
+    outs:
+      - data/processed/raw_splits
+      - data/processed/mlp
+      - data/processed/kan
+    params:
+      - preprocess.datasets
+      - preprocess.models
+
+  train_mlp:
+    cmd: python -m ucr_benchmark_template.modeling.train 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train.py
+      - params.yaml  
+    outs:
+      - models/mlp/
+
+  train_kan:
+    cmd: python -m ucr_benchmark_template.modeling.train_kan 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_kan.py
+      - params.yaml  
+    outs:
+      - models/kan/
+
+  train_inceptiontime:
+    cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_inceptiontime.py
+      - params.yaml  
+    outs:
+      - models/inceptiontime/
+
+  process_results:
+    cmd: python -m ucr_benchmark_template.analyze_results
+    deps:
+      - ucr_benchmark_template/analyze_results.py
+    outs:
+      - data/results/results_avg_over_seeds.csv
+      - data/results/all_results_summary.csv
+      - data/results/best_models_summary.txt
+      - data/results/best_model_per_dataset.csv
+      - data/results/best_config_per_model.csv
+      - data/results/README_generated_files.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

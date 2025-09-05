@@ -1,9 +1,29 @@
+efficient-kan
+
+# Data and outputs
+data/raw/
+data/processed/
+models/
+results/
+
+# DVC files and outputs
+#*.dvc
+*.npz
+*.pkl
+
+# Python cache
+__pycache__/
+data/external/UCRArchive_2018.zip
+/models
+
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
 # website: http://jupyter.org/
 
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
+.ipynb_checkpoints/
+**/.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+
 
 # IPython
 profile_default/
