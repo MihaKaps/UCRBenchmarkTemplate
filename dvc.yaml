@@ -40,6 +40,15 @@ stages:
     outs:
       - models/kan/
 
+  train_drtp:
+    cmd: python -m ucr_benchmark_template.modeling.train_drtp 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_drtp.py
+      - params.yaml  
+    outs:
+      - models/drtp/
+
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
     deps:
