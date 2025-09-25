@@ -23,7 +23,6 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 app = typer.Typer()
 
-#
 class DRTP_Model(nn.Module):
     def __init__(self, fc_layer_sizes):
         super().__init__()
@@ -70,7 +69,7 @@ class DRTP_Model(nn.Module):
             m = self.random_matrices[i]  #[hidden_size, num_classes]
             
             delta_yk = torch.matmul(y_star, m.T)
-            grad_z = (1 - torch.tanh(z)**2) #f'(z)
+            grad_z = (1 - torch.tanh(z)**2) #f'(z) = tanh(z)' = 1 - tanh(z)**2 
             grad = (delta_yk * grad_z).T @ prev_y
             
             self.fc_layers[i].weight.data += lr * grad
