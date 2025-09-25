@@ -10,7 +10,6 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import torch.nn.functional as F
-
 from loguru import logger
 from tqdm import tqdm
 import typer
@@ -26,69 +25,69 @@ app = typer.Typer()
 
 #
 class DRTP_Model(nn.Module):
-    def __init__(self, layer_sizes):
+    def __init__(self, fc_layer_sizes):
         super().__init__()
-        self.num_layers = len(layer_sizes) - 1 
-        self.layers = []
-
-        self.conv_layers = nn.Sequential(
-            #first conv. layer
-            nn.Conv1d(1, 16, kernel_size=5, stride=3, padding=2),
-            nn.BatchNorm1d(16),
-            nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2),
-            
-            # second conv. layer
-            nn.Conv1d(16, 16, kernel_size=5, stride=3, padding=2),
-            nn.BatchNorm1d(16),
-            nn.ReLU(),
-            nn.AdaptiveAvgPool1d(1) 
-            )
+        self.num_layers = len(fc_layer_sizes) - 1
+        self.fc_layers = nn.ModuleList()
         
         #Fully connected layers of NN
         for i in range(self.num_layers):
-            self.layers.append(nn.Linear(layer_sizes[i], layer_sizes[i+1]))
-
+            self.fc_layers.append(nn.Linear(fc_layer_sizes[i], fc_layer_sizes[i+1]))
+        
         #Hidden layers have fixed random connectivity matrices
         self.random_matrices = []
         for i in range(self.num_layers - 1):
-            m = torch.randn(layer_sizes[-1], layer_sizes[i+1]) * 0.1
+            m = torch.randn(fc_layer_sizes[i+1], fc_layer_sizes[-1])
             self.register_buffer(f'random_matrix_{i}', m)
             self.random_matrices.append(getattr(self, f'random_matrix_{i}'))
 
-    
     def forward(self, x):
         self.activations = []
         for i in range(self.num_layers - 1):
-            x = F.relu(self.layers[i](x))
-            self.activations.append(x)
-        out = self.layers[-1](x)
-        self.activations.append(out)
-        return out
+            z = self.fc_layers[i](x)
+            y = torch.tanh(z)
+            self.activations.append((z, y))
+            x = y
+        
+        z_out = self.fc_layers[-1](x)
+        y_out = torch.sigmoid(z_out)
+        self.activations.append((z_out, y_out))
+        return y_out
 
-    
     def update_weights(self, x, y, lr=0.001):
-        out = self.forward(x)
-        oh_vector = F.one_hot(y, num_classes=out.size(1)).float()
+        y_out = self.forward(x)
+        y_star = F.one_hot(y, num_classes=y_out.size(1)).float()
+        
+        #Update hidden weights (DRTP)
+        for i in range(self.num_layers - 1):
+            z, _ = self.activations[i]
+            
+            if i == 0:
+                prev_y = x
+            else:
+                prev_y = self.activations[i-1][1]
+            
+            m = self.random_matrices[i]  #[hidden_size, num_classes]
+            
+            delta_yk = torch.matmul(y_star, m.T)
+            grad_z = (1 - torch.tanh(z)**2) #f'(z)
+            grad = (delta_yk * grad_z).T @ prev_y
+            
+            self.fc_layers[i].weight.data += lr * grad
+            self.fc_layers[i].bias.data += lr * (delta_yk * grad_z).sum(0)
 
         #Update last layer
-        error = oh_vector - out
-        last_hidden = self.activations[-2]
-        self.layers[-1].weight.data += (lr / out.size(1)) * torch.matmul(error.t(), last_hidden)
-        self.layers[-1].bias.data += (lr / out.size(1)) * error.sum(0)
+        z_out, y_out = self.activations[-1]
+        error = (y_star - y_out)
+        last_hidden = self.activations[-2][1]
         
-        #Update hidden weights
-        for i in range(self.num_layers - 1):
-            hidden = self.activations[i]
-            m = self.random_matrices[i]
-            hidden_error = torch.matmul(error, m)
-            prev_activation = x if i == 0 else self.activations[i-1]
-            self.layers[i].weight.data += lr * torch.matmul(hidden_error.t(), prev_activation)
-            self.layers[i].bias.data += lr * hidden_error.sum(0)
+        self.fc_layers[-1].weight.data += (lr / y_out.size(1)) * error.T @ last_hidden
+        self.fc_layers[-1].bias.data += (lr / y_out.size(1)) * error.sum(0)
+
 
 def load_dataset(dataset: str, batch_size: int = 16):
     processed_dir = Path("data/processed/kan")
-    
+   
     # Load .pt files
     train = torch.load(processed_dir / f"{dataset}_train.pt", weights_only=False)
     val = torch.load(processed_dir / f"{dataset}_val.pt", weights_only=False)
