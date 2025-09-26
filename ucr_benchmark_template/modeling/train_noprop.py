@@ -23,65 +23,99 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 app = typer.Typer()
 
-class DRTP_Model(nn.Module):
-    def __init__(self, fc_layer_sizes):
+#=========================
+# NoProp Architecture
+#=========================
+
+class NoPropBlock(nn.Module):
+    def __init__(self, input_length, signal_length):
         super().__init__()
-        self.num_layers = len(fc_layer_sizes) - 1
-        self.fc_layers = nn.ModuleList()
         
-        #Fully connected layers of NN
-        for i in range(self.num_layers):
-            self.fc_layers.append(nn.Linear(fc_layer_sizes[i], fc_layer_sizes[i+1]))
+        #----------------------
+        # CNN -> FCNN for input
+        #----------------------
         
-        #Hidden layers have fixed random connectivity matrices
-        self.random_matrices = []
-        for i in range(self.num_layers - 1):
-            m = torch.randn(fc_layer_sizes[i+1], fc_layer_sizes[-1])
-            self.register_buffer(f'random_matrix_{i}', m)
-            self.random_matrices.append(getattr(self, f'random_matrix_{i}'))
+        self.conv_layers = nn.Sequential(
+            nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool1d(kernel_size=2),
+            nn.Dropout(0.2),
 
-    def forward(self, x):
-        self.activations = []
-        for i in range(self.num_layers - 1):
-            z = self.fc_layers[i](x)
-            y = torch.tanh(z)
-            self.activations.append((z, y))
-            x = y
+            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Flatten()
+        )
         
-        z_out = self.fc_layers[-1](x)
-        y_out = torch.sigmoid(z_out)
-        self.activations.append((z_out, y_out))
-        return y_out
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, input_length)
+            flat_size = self.conv_layers(dummy).shape[1]
+ 
+        self.fc_input = nn.Sequential(
+            nn.Linear(flat_size, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU()
+        )
 
-    def update_weights(self, x, y, lr=0.001):
-        y_out = self.forward(x)
-        y_star = F.one_hot(y, num_classes=y_out.size(1)).float()
         
-        #Update hidden weights (DRTP)
-        for i in range(self.num_layers - 1):
-            z, _ = self.activations[i]
-            
-            if i == 0:
-                prev_y = x
-            else:
-                prev_y = self.activations[i-1][1]
-            
-            m = self.random_matrices[i]  #[hidden_size, num_classes]
-            
-            delta_yk = torch.matmul(y_star, m.T)
-            grad_z = (1 - torch.tanh(z)**2) #f'(z) = tanh(z)' = 1 - tanh(z)**2 
-            grad = (delta_yk * grad_z).T @ prev_y
-            
-            self.fc_layers[i].weight.data += lr * grad
-            self.fc_layers[i].bias.data += lr * (delta_yk * grad_z).sum(0)
+        #------------------
+        # FCNN for signal
+        #------------------
+        
+        self.fc_signal = nn.Sequential(
+            nn.Linear(signal_length, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU()
+        )
 
-        #Update last layer
-        z_out, y_out = self.activations[-1]
-        error = (y_star - y_out)
-        last_hidden = self.activations[-2][1]
-        
-        self.fc_layers[-1].weight.data += (lr / y_out.size(1)) * error.T @ last_hidden
-        self.fc_layers[-1].bias.data += (lr / y_out.size(1)) * error.sum(0)
+        #------------
+        # Merged FC 
+        #------------
+
+        self.fc_merged = nn.Sequential(
+            nn.Linear(512, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.BatchNorm1d(128),
+            nn.ReLU(),
+            nn.Linear(128, signal_length)
+        )
+
+    def forward(self, x, z):
+        fx = self.conv_layers(x)
+        fx = self.fc_input(fx)
+        fz = self.fc_signal(z)
+        fused = torch.cat([fx, fz], dim = -1)
+        logits = self.fc_merged(fused)
+        out = F.softmax(logits, dim = -1)
+        return out
+
+class NoPropModel(nn.Module):
+    
+    def __init__(self, num_blocks, input_length, signal_length):
+        super().__init__()
+        self.blocks = nn.ModuleList([
+            NoPropBlock(input_length, signal_length)
+            for _ in range(num_blocks)
+        ])
+        self.num_blocks = num_blocks
+        self.out_head = nn.Linear(signal_length, signal_length)  
+
+    def forward(self, x, z):   
+        all_z = []
+        for block in self.blocks:
+            z = block(x, z)  
+            all_z.append(z)
+        logits = self.out_head(z)  
+        return logits, all_z
+
+#=========================
+# //
+#=========================
 
 
 def load_dataset(dataset: str, batch_size: int = 16):
