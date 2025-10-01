@@ -28,27 +28,30 @@ app = typer.Typer()
 #=========================
 
 class NoPropBlock(nn.Module):
-    def __init__(self, input_length, signal_length):
+    def __init__(self, input_length, emb_dimension, num_classes, num_channs = 3):
         super().__init__()
         
-        #----------------------
-        # CNN -> FCNN for input
-        #----------------------
-        
+        # CNN and FCNN for input
         self.conv_layers = nn.Sequential(
-            nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(num_channs, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool1d(kernel_size=2),
+            nn.MaxPool2d(kernel_size=2),
             nn.Dropout(0.2),
 
-            nn.Conv1d(32, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Dropout(0.2),
+
+            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2),
+            nn.Dropout(0.2),
+            
             nn.Flatten()
         )
         
         with torch.no_grad():
-            dummy = torch.zeros(1, 1, input_length)
+            dummy = torch.zeros(1, num_channs, input_length, input_length)
             flat_size = self.conv_layers(dummy).shape[1]
  
         self.fc_input = nn.Sequential(
@@ -56,25 +59,23 @@ class NoPropBlock(nn.Module):
             nn.BatchNorm1d(256),
             nn.ReLU()
         )
-
         
-        #------------------
         # FCNN for signal
-        #------------------
+        self.fc_signal_1 = nn.Sequential(
+            nn.Linear(emb_dimension, 256),
+            nn.BatchNorm1d(256),
+            nn.ReLU()
+        )
         
-        self.fc_signal = nn.Sequential(
-            nn.Linear(signal_length, 256),
+        self.fc_signal_2 = nn.Sequential(
+            nn.Linear(256, 256),
             nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.BatchNorm1d(256),
-            nn.ReLU()
         )
 
-        #------------
         # Merged FC 
-        #------------
-
         self.fc_merged = nn.Sequential(
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
@@ -82,29 +83,44 @@ class NoPropBlock(nn.Module):
             nn.Linear(256, 128),
             nn.BatchNorm1d(128),
             nn.ReLU(),
-            nn.Linear(128, signal_length)
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x, z):
         fx = self.conv_layers(x)
         fx = self.fc_input(fx)
-        fz = self.fc_signal(z)
-        fused = torch.cat([fx, fz], dim = -1)
-        logits = self.fc_merged(fused)
-        out = F.softmax(logits, dim = -1)
+        
+        fz_1 = self.fc_signal_1(z)
+        fz_2 = self.fc_signal_2(fz_1) + fz_1
+        
+        fused = torch.cat([fx, fz_2], dim = -1)
+        out = self.fc_merged(fused)
+        #out = F.softmax(logits, dim = -1)
         return out
 
 class NoPropModel(nn.Module):
-    
-    def __init__(self, num_blocks, input_length, signal_length):
+    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, num_channs = 3):
         super().__init__()
+
+        # Blocks
         self.blocks = nn.ModuleList([
-            NoPropBlock(input_length, signal_length)
+            NoPropBlock(input_length, emb_dimension, num_classes, num_channs)
             for _ in range(num_blocks)
         ])
+        
         self.num_blocks = num_blocks
-        self.out_head = nn.Linear(signal_length, signal_length)  
+        self.input_length = input_length
+        self.emb_dimension = emb_dimension
 
+        # Learnable embedding
+        self.W_embed = nn.Parameter(
+            torch.eye(num_classes, emb_dimension), requires_grad=True
+        )
+
+
+        # Final classifier
+        self.out_head = nn.Linear(emb_dimension, num_classes)  
+    
     def forward(self, x, z):   
         all_z = []
         for block in self.blocks:
@@ -156,44 +172,67 @@ def make_model(dataset_name, depth, layer_size):
     
     return DRTP_Model(architecture).to(device)
 
-def train(model, trainloader, valloader, learning_rate, epochs):
-    
-    criterion = nn.CrossEntropyLoss()
 
-    start = time.time()
+
+def train(model, trainloader, learning_rate, epochs, T, eta): 
     
-    for epoch in range(epochs):
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-3) 
+    alphas, alpha_hats = noise_schedule(T)
+    
+    start = time.time() 
+    
+    for epoch in range(epochs): 
         model.train()
-        running_loss = 0.0
-        running_accuracy = 0.0
-        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=True) as pbar:
-            for data, labels in pbar:
-                data, labels = data.to(device), labels.to(device)
-                #optimizer.zero_grad()
-                outputs = model(data)
-                loss = criterion(outputs, labels)
-                model.update_weights(data, labels, lr=learning_rate)
-                #optimizer.step()
-                running_loss += loss.item()
-                running_accuracy += (outputs.argmax(dim=1) == labels).float().mean().item()
-                pbar.set_postfix(loss=running_loss/len(pbar), accuracy=running_accuracy/len(pbar), lr=learning_rate)
+        for t in range(1, T+1): 
+            running_loss = 0.0 
+            running_accuracy = 0.0
+            
+            step = 0
+            with tqdm(trainloader, desc=f"Training Epoch {epoch+1} Block {t}") as pbar: 
+                for data, labels in pbar: 
+                    data, labels = data.to(device), labels.to(device) 
+                    
+                    # Collect embeddings
+                    #uy = one_hot(labels, model.signal_length) # For one-hot
+                    uy = model.W_embed[labels]
 
-        # VALIDATION
-        model.eval()
-        val_loss = 0
-        val_accuracy = 0
-        with torch.no_grad():
-            for data, labels in tqdm(valloader, desc=f"Validation Epoch {epoch+1}", disable=True):
-                data, labels = data.to(device), labels.to(device)
-                outputs = model(data)
-                val_loss += criterion(outputs, labels).item()
-                val_accuracy += (outputs.argmax(dim=1) == labels).float().mean().item()
-        val_loss /= len(valloader)
-        val_accuracy /= len(valloader)
+                    # Sample z_(t-1), z_T
+                    z_tm1 = sample(alpha_hats, t-1, uy)
+                    z_T = sample(alpha_hats, T, uy)
+                    
+                    # Local forward pass
+                    z_pred = model.blocks[t-1](data, z_tm1) # Indexed from 0
+                    z_pred = F.softmax(z_pred, dim=-1)
+                    #u_hat = z_pred @ model.W_embed.weights
+                    
+                    u_hat = z_pred @ model.W_embed
+                    #print(model.W_embed)
+                    # Compute local L2 loss
+                    diff_snr = snr(t, alpha_hats) - snr(t-1, alpha_hats)
+                    local_loss = diff_snr * F.mse_loss(u_hat, uy, reduction="mean") * (T / 2) * eta
 
-    end = time.time()
+                    # Compute global CE loss
+                    logits = model.out_head(z_T)
+                    global_loss = F.cross_entropy(logits, labels)
+
+                    # Compute KL Divergence
+                    alpha_0 = alpha_hats[0]
+                    kl_loss = kl_divergence_term(uy, alpha_0)
+                    
+                    # Total loss
+                    loss = local_loss + global_loss + kl_loss
+  
+                    optimizer.zero_grad() 
+                    loss.backward()
+                    optimizer.step() 
+                    running_loss += local_loss.item()
+
+                    step += 1
+                    pbar.set_postfix(loss=running_loss/step, lr=learning_rate)
     
+    end = time.time()
     return model, end - start
+
 
 def predict(model, testloader):
     model.eval()
