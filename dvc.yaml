@@ -49,6 +49,15 @@ stages:
     outs:
       - models/drtp/
 
+  train_noprop:
+    cmd: python -m ucr_benchmark_template.modeling.train_noprop 
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_noprop.py
+      - params.yaml  
+    outs:
+      - models/noprop/
+      
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 
     deps:

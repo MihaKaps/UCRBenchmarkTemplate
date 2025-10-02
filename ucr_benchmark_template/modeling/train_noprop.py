@@ -27,31 +27,35 @@ app = typer.Typer()
 # NoProp Architecture
 #=========================
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class NoPropBlock(nn.Module):
-    def __init__(self, input_length, emb_dimension, num_classes, num_channs = 3):
+    def __init__(self, input_length, emb_dimension, num_classes):
         super().__init__()
         
         # CNN and FCNN for input
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(num_channs, 32, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(1, 32, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
+            nn.MaxPool1d(kernel_size=2),
             nn.Dropout(0.2),
 
-            nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Dropout(0.2),
 
-            nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
+            nn.Conv1d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2),
+            nn.MaxPool1d(kernel_size=2),
             nn.Dropout(0.2),
             
             nn.Flatten()
         )
         
         with torch.no_grad():
-            dummy = torch.zeros(1, num_channs, input_length, input_length)
+            dummy = torch.zeros(1, 1, input_length)
             flat_size = self.conv_layers(dummy).shape[1]
  
         self.fc_input = nn.Sequential(
@@ -95,44 +99,96 @@ class NoPropBlock(nn.Module):
         
         fused = torch.cat([fx, fz_2], dim = -1)
         out = self.fc_merged(fused)
-        #out = F.softmax(logits, dim = -1)
         return out
 
 class NoPropModel(nn.Module):
-    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, num_channs = 3):
+    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, learn_emb):
         super().__init__()
-
-        # Blocks
-        self.blocks = nn.ModuleList([
-            NoPropBlock(input_length, emb_dimension, num_classes, num_channs)
-            for _ in range(num_blocks)
-        ])
         
         self.num_blocks = num_blocks
         self.input_length = input_length
-        self.emb_dimension = emb_dimension
 
         # Learnable embedding
-        self.W_embed = nn.Parameter(
-            torch.eye(num_classes, emb_dimension), requires_grad=True
-        )
+        if learn_emb:
+            self.W_embed = torch.nn.Parameter(torch.randn(num_classes, emb_dimension), requires_grad=True)
+            self.emb_dimension = emb_dimension
+        else:
+            self.W_embed = nn.Parameter(torch.eye(num_classes, num_classes), requires_grad=False)
+            self.emb_dimension = num_classes
 
-
+        # Blocks
+        self.blocks = nn.ModuleList([
+            NoPropBlock(input_length, self.emb_dimension, num_classes)
+            for _ in range(num_blocks)
+        ])
+            
         # Final classifier
-        self.out_head = nn.Linear(emb_dimension, num_classes)  
+        self.out_head = nn.Linear(self.emb_dimension, num_classes) 
+
+        self.alphas, self.alpha_hats = noise_schedule(num_blocks)
+        self.at = torch.sqrt(self.alpha_hats[1:]) * (1 - self.alphas[:-1]) / (1 - self.alpha_hats[:-1])
+        self.bt = torch.sqrt(self.alphas[:-1]) * (1 - self.alpha_hats[1:]) / (1 - self.alpha_hats[:-1])
+        self.ct = (1 - self.alpha_hats[1:]) * (1 - self.alphas[:-1]) / (1 - self.alpha_hats[:-1])
     
     def forward(self, x, z):   
-        all_z = []
-        for block in self.blocks:
-            z = block(x, z)  
-            all_z.append(z)
-        logits = self.out_head(z)  
-        return logits, all_z
+        # Pass through all T blocks
+        for i in range(self.num_blocks):
+            block = self.blocks[i]
+            logits = block(x, z) @ self.W_embed
+            noise = torch.randn_like(z)
+            z = self.at[i] * logits + self.bt[i] * z + torch.sqrt(self.ct[i]) * noise
+        
+        # Final prediction
+        logits = self.out_head(z)
+
+        return logits
 
 #=========================
-# //
+# Functions
 #=========================
 
+def noise_schedule(T, s=0.008):
+    steps = torch.arange(0, T+1, dtype=torch.float32)
+    alpha_hats = torch.cos((((steps / T) + s) / (1 + s)) * torch.pi / 2) ** 2
+    alpha_hats = alpha_hats / alpha_hats[0]
+    
+    alphas = torch.ones_like(alpha_hats)
+    alphas[1:] = alpha_hats[1:] / alpha_hats[:-1]
+    
+    return torch.flip(alphas, dims = [0]), torch.flip(alpha_hats, dims = [0])
+
+def snr(t, alpha_hats):
+    return alpha_hats[t] / (1 - alpha_hats[t] + 1e-8)
+
+def sample(alpha_hats, t, uy):
+    mean = (alpha_hats[t]**0.5) * uy 
+    std = (1 - alpha_hats[t])**0.5 
+    noise = torch.randn_like(uy) 
+    z_t = mean + std * noise 
+    return z_t
+
+def kl_divergence_term(uy, alpha_0):
+    mu_q = torch.sqrt(alpha_0) * uy
+    sigma2_q = 1.0 - alpha_0
+
+    mu_norm2 = mu_q.pow(2).sum(dim=1)
+
+    d = uy.shape[1]
+    kl = 0.5 * (mu_norm2 + d * (sigma2_q - 1 - torch.log(sigma2_q)))
+    return kl.mean()
+
+def ensure_channels_first(X):
+    # if 2D: [B, L] -> [B, 1, L]
+    if X.dim() == 2:
+        X = X.unsqueeze(1)
+    # if 3D: [B, H, W] -> [B, 1, H, W]
+    elif X.dim() == 3:
+        X = X.unsqueeze(1)
+    return X
+
+#=========================
+# Data
+#=========================
 
 def load_dataset(dataset: str, batch_size: int = 16):
     processed_dir = Path("data/processed/kan")
@@ -142,19 +198,21 @@ def load_dataset(dataset: str, batch_size: int = 16):
     val = torch.load(processed_dir / f"{dataset}_val.pt", weights_only=False)
     test = torch.load(processed_dir / f"{dataset}_test.pt", weights_only=False)
 
-    X_train, y_train = train["X"], train["y"]
-    X_val, y_val = val["X"], val["y"]
-    X_test, y_test = test["X"], test["y"]
+    X_train, y_train = ensure_channels_first(train["X"]), train["y"]
+    X_val, y_val = ensure_channels_first(val["X"]), val["y"]
+    X_test, y_test = ensure_channels_first(test["X"]), test["y"]
 
     # Create data loaders
     trainloader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=False)
     valloader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, shuffle=False)
     testloader = DataLoader(TensorDataset(X_test, y_test), batch_size=batch_size, shuffle=False)
-
     return trainloader, valloader, testloader
 
-    
-def make_model(dataset_name, depth, layer_size):
+#=========================
+# Model
+#=========================
+
+def make_model(dataset_name, emb_dimension, num_blocks, learnable_emb = False):
     summary_csv=Path("data/external/DataSummary.csv")
     df_meta = pd.read_csv(summary_csv)
     
@@ -167,21 +225,21 @@ def make_model(dataset_name, depth, layer_size):
     input_length = int(row['Length'].values[0])
     num_classes = int(row['Class'].values[0])
     
-    # Build architecture list
-    architecture = [input_length] + [layer_size] * depth + [num_classes]
+    return NoPropModel(num_blocks, input_length, emb_dimension, num_classes, learnable_emb).to(device)
+
+#=========================
+# Train & Eval
+#=========================
+
+def train(model, trainloader, valloader, epochs, T, eta, lr, wd): 
     
-    return DRTP_Model(architecture).to(device)
-
-
-
-def train(model, trainloader, learning_rate, epochs, T, eta): 
-    
-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-3) 
     alphas, alpha_hats = noise_schedule(T)
-    
+    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=wd) 
     start = time.time() 
     
     for epoch in range(epochs): 
+        
+        # TRAINING
         model.train()
         for t in range(1, T+1): 
             running_loss = 0.0 
@@ -193,7 +251,6 @@ def train(model, trainloader, learning_rate, epochs, T, eta):
                     data, labels = data.to(device), labels.to(device) 
                     
                     # Collect embeddings
-                    #uy = one_hot(labels, model.signal_length) # For one-hot
                     uy = model.W_embed[labels]
 
                     # Sample z_(t-1), z_T
@@ -201,12 +258,10 @@ def train(model, trainloader, learning_rate, epochs, T, eta):
                     z_T = sample(alpha_hats, T, uy)
                     
                     # Local forward pass
-                    z_pred = model.blocks[t-1](data, z_tm1) # Indexed from 0
+                    z_pred = model.blocks[t-1](data, z_tm1) # Indexed from 0 therefore t-1
                     z_pred = F.softmax(z_pred, dim=-1)
-                    #u_hat = z_pred @ model.W_embed.weights
-                    
                     u_hat = z_pred @ model.W_embed
-                    #print(model.W_embed)
+                    
                     # Compute local L2 loss
                     diff_snr = snr(t, alpha_hats) - snr(t-1, alpha_hats)
                     local_loss = diff_snr * F.mse_loss(u_hat, uy, reduction="mean") * (T / 2) * eta
@@ -228,8 +283,25 @@ def train(model, trainloader, learning_rate, epochs, T, eta):
                     running_loss += local_loss.item()
 
                     step += 1
-                    pbar.set_postfix(loss=running_loss/step, lr=learning_rate)
-    
+                    pbar.set_postfix(loss=running_loss/step, lr=lr)
+
+        # VALIDATION
+        model.eval()
+        val_loss = 0
+        val_accuracy = 0
+        with torch.no_grad():
+            for data, labels in tqdm(valloader, desc=f"Validation Epoch {epoch+1}", disable=True):
+                data, labels = data.to(device), labels.to(device)
+                
+                # Start z0 ~ N(0, 1)
+                z = torch.randn(data.size(0), model.emb_dimension, device=device)
+                
+                logits = model(data, z)
+                val_loss += F.cross_entropy(logits, labels)
+                val_accuracy += (logits.argmax(dim=1) == labels).float().mean().item()
+        val_loss /= len(valloader)
+        val_accuracy /= len(valloader)
+
     end = time.time()
     return model, end - start
 
@@ -243,8 +315,12 @@ def predict(model, testloader):
     with torch.no_grad():
         for data, labels in testloader:
             data, labels = data.to(device), labels.to(device)
-            outputs = model(data)
-            _, preds = torch.max(outputs, 1)
+            
+            # Start z0 ~ N(0, 1)
+            z = torch.randn(data.size(0), model.emb_dimension, device=device)
+
+            logits = model(data, z)
+            preds = logits.argmax(dim=1)
             all_preds.append(preds.cpu().numpy())
             all_labels.append(labels.cpu().numpy())
 
@@ -252,6 +328,8 @@ def predict(model, testloader):
     all_labels = np.concatenate(all_labels)
 
     return all_labels, all_preds
+
+
 
 def evaluate(y_true, y_pred):
     return {
@@ -261,26 +339,29 @@ def evaluate(y_true, y_pred):
         "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
-def save_results(train_time, results, dataset, depth, layer_size, lr, epochs, batch):
+def save_results(train_time, results, dataset, t, learnable_emb, emb_dimension, eta, lr, wd, epochs, batch):
     save_run_results({
-        "model": "DRTP",
+        "model": "NoProp",
         "dataset": dataset,
         **results,
         "train time": train_time,
-        "depth": depth,
-        "layer size": layer_size,
+        "T": t,
+        "learnable embedding": learnable_emb,
+        "embedding dimension": emb_dimension,
+        "eta": eta,
         "learning rate": lr,
+        "weight decay": wd,
         "batch": batch,
         "epochs": epochs,
         "device": device    
     })
         
-def save_model(model, dataset, depth, layer_size, lr, epochs, batch):
-    drtp_models_dir = MODELS_DIR / "drtp"
-    drtp_models_dir.mkdir(parents=True, exist_ok=True)
+def save_model(model, dataset, t, learnable_emb, emb_dimension, eta, lr, wd, epochs, batch):
+    noprop_models_dir = MODELS_DIR / "noprop"
+    noprop_models_dir.mkdir(parents=True, exist_ok=True)
     
-    name = f"drtp_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}.pt"
-    path = drtp_models_dir / name
+    name = f"noprop_{dataset}_{t}_{learnable_emb}_{emb_dimension}_{eta}_{lr}_{wd}_{epochs}_{batch}.pt"
+    path = noprop_models_dir / name
     
     torch.save(model.state_dict(), path)
         
@@ -299,35 +380,41 @@ def main(
         if not datasets:
             raise ValueError(f"No datasets found in {PROCESSED_DATA_DIR}")
 
-    depths = params["train_drtp"]["depths"]
-    layers = params["train_drtp"]["hidden_layers"]
-    learning_rates = params["train_drtp"]["learning_rates"]
-    epochs_list = params["train_drtp"]["epochs"]
-    batch = params["train_drtp"]["batch"]
+    ts = params["train_noprop"]["ts"]
+    learnable_embs = params["train_noprop"]["learnable_embs"]
+    emb_dimensions = params["train_noprop"]["emb_dimensions"]
+    etas = params["train_noprop"]["etas"]
+    learning_rates = params["train_noprop"]["learning_rates"]
+    weight_decays = params["train_noprop"]["weight_decays"]
+    epoch_list = params["train_noprop"]["epochs"]
+    batch = params["train_noprop"]["batch"]
     
-    for depth in depths:
-        for layer_size in layers:
-            for lr in learning_rates:
-                for epochs in epochs_list:
-                    for dataset in datasets:
-                        trainloader, valloader, testloader = load_dataset(dataset)
-                            
-                             # Make model
-                        model = make_model(dataset, depth, layer_size)
-    
-                            # Train
-                        model, train_time = train(model, trainloader, valloader, lr, epochs)
-    
-                            # Predict
-                        all_labels, all_preds = predict(model, testloader)
-    
-                            # Evaluate
-                        eval_results = evaluate(all_labels, all_preds)
-    
-                            # Save model & results
-                        save_model(model, dataset, depth, layer_size, lr, epochs, batch)
-                        save_results(train_time, eval_results, dataset, depth, layer_size, lr, epochs, batch)
-                                
+    for t in ts:
+        for l_emb in learnable_embs:
+            for emb_d in emb_dimensions:
+                for eta in etas:
+                    for lr in learning_rates:
+                        for wd in weight_decays:
+                            for epochs in epoch_list:
+                                for dataset in datasets:
+                                    trainloader, valloader, testloader = load_dataset(dataset)
+                                        
+                                         # Make model
+                                    model = make_model(dataset, emb_d, t, l_emb)
+                
+                                        # Train
+                                    model, train_time = train(model, trainloader, valloader, epochs, t, eta, lr, wd)
+                                    
+                                        # Predict
+                                    all_labels, all_preds = predict(model, testloader)
+                
+                                        # Evaluate
+                                    eval_results = evaluate(all_labels, all_preds)
+                
+                                        # Save model & results
+                                    save_model(model, dataset, t, l_emb, emb_d, eta, lr, wd, epochs, batch)
+                                    save_results(train_time, eval_results, dataset, t, l_emb, emb_d, eta, lr, wd, epochs, batch)
+                                            
 
 if __name__ == "__main__":
     app()

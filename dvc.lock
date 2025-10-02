@@ -40,28 +40,26 @@ stages:
     params:
       params.yaml:
         preprocess.datasets:
-        - FaceAll
-        - GunPoint
-        - Coffee
+        - Beef
         preprocess.models:
         - mlp
         - kan
     outs:
     - path: data/processed/kan
       hash: md5
-      md5: 4eabde5608a172c46dee158aa3ce61f9.dir
-      size: 1395942
-      nfiles: 9
+      md5: 881ae0e69763e1a53dfcd340b63ecfe4.dir
+      size: 117484
+      nfiles: 3
     - path: data/processed/mlp
       hash: md5
-      md5: 402d2b1c370d10c37136cf7a68a340b8.dir
-      size: 1265302
-      nfiles: 3
+      md5: 615f92bbdb1211534d0ef52fad0c81b9.dir
+      size: 105362
+      nfiles: 1
     - path: data/processed/raw_splits
       hash: md5
-      md5: e2aa742d1613ad26e2948b5eff474b8b.dir
-      size: 1384648
-      nfiles: 12
+      md5: 5d180664f2ec44284fb0138c9b6f84bd.dir
+      size: 113792
+      nfiles: 4
   train_all:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
@@ -222,3 +220,25 @@ stages:
       md5: 89e3ca6e0b97e517711027cfd1cd6cd4.dir
       size: 65276
       nfiles: 3
+  train_noprop:
+    cmd: python -m ucr_benchmark_template.modeling.train_noprop
+    deps:
+    - path: data/processed/
+      hash: md5
+      md5: 24d3bd6273081de4085e4d721b3d7f21.dir
+      size: 336638
+      nfiles: 8
+    - path: params.yaml
+      hash: md5
+      md5: e4e56166c36e46db36341bad59e4d082
+      size: 887
+    - path: ucr_benchmark_template/modeling/train_noprop.py
+      hash: md5
+      md5: 8f40198c905b8b605028f4bed6663440
+      size: 14555
+    outs:
+    - path: models/noprop/
+      hash: md5
+      md5: ed1122c360e11b5f854f3a2e4ed2fa70.dir
+      size: 668061174
+      nfiles: 4
