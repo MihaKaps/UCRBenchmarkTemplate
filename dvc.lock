@@ -9,8 +9,8 @@ stages:
       size: 316175400
     - path: ucr_benchmark_template/preprocessing/preprocess.py
       hash: md5
-      md5: ccbef965a13fc8346dfe5802a5f93707
-      size: 4456
+      md5: ff255f6f2c3fd1412d0157b65fce03e3
+      size: 4483
     outs:
     - path: data/raw
       hash: md5
@@ -27,39 +27,38 @@ stages:
       nfiles: 416
     - path: ucr_benchmark_template/preprocessing/preprocess.py
       hash: md5
-      md5: ccbef965a13fc8346dfe5802a5f93707
-      size: 4456
+      md5: ff255f6f2c3fd1412d0157b65fce03e3
+      size: 4483
     - path: ucr_benchmark_template/preprocessing/preprocessors/kan.py
       hash: md5
-      md5: 49d903c7615be78e7e08017dd854f24a
-      size: 2271
+      md5: 9fcfee0727af72b24f9cbfcdce7d4d0a
+      size: 2347
     - path: ucr_benchmark_template/preprocessing/preprocessors/mlp.py
       hash: md5
       md5: 27636621f3bef9d277afe5028bb9b561
       size: 1700
     params:
       params.yaml:
-        preprocess.datasets:
-        - Beef
+        preprocess.datasets: []
         preprocess.models:
-        - mlp
         - kan
+        - mlp
     outs:
     - path: data/processed/kan
       hash: md5
-      md5: 881ae0e69763e1a53dfcd340b63ecfe4.dir
-      size: 117484
-      nfiles: 3
+      md5: 47eb148fb5931b2fe488ff293d5687dd.dir
+      size: 290005848
+      nfiles: 339
     - path: data/processed/mlp
       hash: md5
-      md5: 615f92bbdb1211534d0ef52fad0c81b9.dir
-      size: 105362
-      nfiles: 1
+      md5: facfca257eb87f83285a23a6b4d51c1a.dir
+      size: 278920214
+      nfiles: 120
     - path: data/processed/raw_splits
       hash: md5
-      md5: 5d180664f2ec44284fb0138c9b6f84bd.dir
-      size: 113792
-      nfiles: 4
+      md5: caa907125e512ffa969b787710304dab.dir
+      size: 307302688
+      nfiles: 480
   train_all:
     cmd: python -m ucr_benchmark_template.modeling.train
     deps:
@@ -171,8 +170,8 @@ stages:
     deps:
     - path: ucr_benchmark_template/analyze_results.py
       hash: md5
-      md5: 589439224450d0f8f46c1fe740b249c0
-      size: 7071
+      md5: 81b661c2fb07df015da59378c7ee593e
+      size: 7063
     outs:
     - path: data/results/README_generated_files.txt
       hash: md5
@@ -180,24 +179,24 @@ stages:
       size: 942
     - path: data/results/all_results_summary.csv
       hash: md5
-      md5: 48ee7547afd0ee5bb8a26f30abb9ce17
-      size: 638
+      md5: cf5075e32ec5e6996b28c529c5581c29
+      size: 3221
     - path: data/results/best_config_per_model.csv
       hash: md5
-      md5: 48ee7547afd0ee5bb8a26f30abb9ce17
-      size: 638
+      md5: 69dd44974b38b01ba4d2a58c898c5950
+      size: 1117
     - path: data/results/best_model_per_dataset.csv
       hash: md5
-      md5: fdeaad4cd52bd7b5bc0d5c4a4a728048
-      size: 414
+      md5: deb7b98dd795b0fac3026d8fe5ea759c
+      size: 1201
     - path: data/results/best_models_summary.txt
       hash: md5
-      md5: 94e88cfd49dcf58e297bb37accb89e89
-      size: 1057
+      md5: f4c03e3aa114643836fe9fa7c569fd21
+      size: 1083
     - path: data/results/results_avg_over_seeds.csv
       hash: md5
-      md5: eb6c76fa69b577653fac18d39c07f260
-      size: 654
+      md5: 78e9f9ef1bf61ca06dc219371684fb9b
+      size: 5777
   train_drtp:
     cmd: python -m ucr_benchmark_template.modeling.train_drtp
     deps:
@@ -230,15 +229,15 @@ stages:
       nfiles: 8
     - path: params.yaml
       hash: md5
-      md5: e4e56166c36e46db36341bad59e4d082
-      size: 887
+      md5: c713bc02e782f7dabb4223fee8e89c98
+      size: 942
     - path: ucr_benchmark_template/modeling/train_noprop.py
       hash: md5
-      md5: 8f40198c905b8b605028f4bed6663440
-      size: 14555
+      md5: 96a85fb16a84a9ab9b4f45154f4637ea
+      size: 15867
     outs:
     - path: models/noprop/
       hash: md5
-      md5: ed1122c360e11b5f854f3a2e4ed2fa70.dir
-      size: 668061174
-      nfiles: 4
+      md5: 02467d6f566e0c4548ff6e5a0775e02b.dir
+      size: 89814581
+      nfiles: 1

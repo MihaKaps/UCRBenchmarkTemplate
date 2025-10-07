@@ -24,24 +24,52 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 app = typer.Typer()
 
 class DRTP_Model(nn.Module):
-    def __init__(self, fc_layer_sizes):
+    def __init__(self, input_length, num_classes, channels, kernel_size, dropout, fc_layers):
         super().__init__()
-        self.num_layers = len(fc_layer_sizes) - 1
-        self.fc_layers = nn.ModuleList()
+
+        #CNN
+        layers = []
+        for i in range(len(channels) - 1):
+            layers.append(nn.Conv1d(
+                in_channels=channels[i],
+                out_channels=channels[i+1],
+                kernel_size=kernel_size,
+                stride=1,
+                padding=kernel_size // 2
+            ))
+            
+            layers.append(nn.ReLU())
+            layers.append(nn.MaxPool1d(kernel_size=2))
+            layers.append(nn.Dropout(dropout))
+
+        layers.append(nn.Flatten())  # flatten only once, at the end
+        self.conv_layers = nn.Sequential(*layers)
+
+        for p in self.conv_layers.parameters():
+            p.requires_grad = False
+
+        with torch.no_grad():
+            dummy = torch.zeros(1, channels[0], input_length)
+            flat_size = self.conv_layers(dummy).shape[1]
+
+        fc_layers = [flat_size] + fc_layers
+        self.num_layers = len(fc_layers) - 1
         
-        #Fully connected layers of NN
-        for i in range(self.num_layers):
-            self.fc_layers.append(nn.Linear(fc_layer_sizes[i], fc_layer_sizes[i+1]))
+        self.fc_layers = nn.ModuleList()
+        for i in range(len(fc_layers) - 1):
+            self.fc_layers.append(nn.Linear(fc_layers[i], fc_layers[i+1]))
+        
         
         #Hidden layers have fixed random connectivity matrices
         self.random_matrices = []
-        for i in range(self.num_layers - 1):
-            m = torch.randn(fc_layer_sizes[i+1], fc_layer_sizes[-1])
+        for i in range(self.num_layers - 1): #last layer doesn't need matrix
+            m = torch.randn(fc_layers[i+1], fc_layers[-1])
             self.register_buffer(f'random_matrix_{i}', m)
             self.random_matrices.append(getattr(self, f'random_matrix_{i}'))
 
     def forward(self, x):
         self.activations = []
+        x = self.conv_layers(x)
         for i in range(self.num_layers - 1):
             z = self.fc_layers[i](x)
             y = torch.tanh(z)
@@ -49,11 +77,11 @@ class DRTP_Model(nn.Module):
             x = y
         
         z_out = self.fc_layers[-1](x)
-        y_out = torch.sigmoid(z_out)
+        y_out = torch.softmax(z_out, dim = 1)
         self.activations.append((z_out, y_out))
         return y_out
 
-    def update_weights(self, x, y, lr=0.001):
+    def update_weights(self, x, y, lr=0.00001):
         y_out = self.forward(x)
         y_star = F.one_hot(y, num_classes=y_out.size(1)).float()
         
@@ -84,27 +112,26 @@ class DRTP_Model(nn.Module):
         self.fc_layers[-1].bias.data += (lr / y_out.size(1)) * error.sum(0)
 
 
-def load_dataset(dataset: str, batch_size: int = 16):
-    processed_dir = Path("data/processed/kan")
-   
-    # Load .pt files
-    train = torch.load(processed_dir / f"{dataset}_train.pt", weights_only=False)
-    val = torch.load(processed_dir / f"{dataset}_val.pt", weights_only=False)
-    test = torch.load(processed_dir / f"{dataset}_test.pt", weights_only=False)
 
-    X_train, y_train = train["X"], train["y"]
-    X_val, y_val = val["X"], val["y"]
-    X_test, y_test = test["X"], test["y"]
+def load_dataset(dataset, batch_size = 16):
+    path = PROCESSED_DATA_DIR / f"mlp/{dataset}.npz"
+    data = np.load(path)
 
-    # Create data loaders
-    trainloader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=False)
-    valloader = DataLoader(TensorDataset(X_val, y_val), batch_size=batch_size, shuffle=False)
+    # Convert numpy arrays to PyTorch tensors
+    X_train = torch.tensor(data["X_train"], dtype=torch.float32).unsqueeze(1) 
+    y_train = torch.tensor(data["y_train"], dtype=torch.long)
+    X_test = torch.tensor(data["X_test"], dtype=torch.float32).unsqueeze(1) 
+    y_test = torch.tensor(data["y_test"], dtype=torch.long)
+
+    # Create DataLoaders
+    trainloader = DataLoader(TensorDataset(X_train, y_train), batch_size=batch_size, shuffle=True, drop_last=True)
     testloader = DataLoader(TensorDataset(X_test, y_test), batch_size=batch_size, shuffle=False)
 
-    return trainloader, valloader, testloader
+    return trainloader, testloader
 
     
-def make_model(dataset_name, depth, layer_size):
+def make_model(dataset_name, channels, kernel_size, dropout, fc_layers):
+    
     summary_csv=Path("data/external/DataSummary.csv")
     df_meta = pd.read_csv(summary_csv)
     
@@ -116,15 +143,17 @@ def make_model(dataset_name, depth, layer_size):
     # Extract input length and number of classes
     input_length = int(row['Length'].values[0])
     num_classes = int(row['Class'].values[0])
-    
-    # Build architecture list
-    architecture = [input_length] + [layer_size] * depth + [num_classes]
-    
-    return DRTP_Model(architecture).to(device)
 
-def train(model, trainloader, valloader, learning_rate, epochs):
+    if channels[0] != 1:
+        chalnnels = [1] + channels
+
+    if fc_layers[-1] != num_classes:
+        fc_layers = fc_layers + [num_classes]
     
-    #optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    return DRTP_Model(input_length, num_classes, channels, kernel_size, dropout, fc_layers).to(device)
+
+def train(model, trainloader, learning_rate, epochs):
+    
     criterion = nn.CrossEntropyLoss()
 
     start = time.time()
@@ -133,30 +162,15 @@ def train(model, trainloader, valloader, learning_rate, epochs):
         model.train()
         running_loss = 0.0
         running_accuracy = 0.0
-        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=True) as pbar:
+        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=False) as pbar:
             for data, labels in pbar:
                 data, labels = data.to(device), labels.to(device)
-                #optimizer.zero_grad()
                 outputs = model(data)
                 loss = criterion(outputs, labels)
                 model.update_weights(data, labels, lr=learning_rate)
-                #optimizer.step()
                 running_loss += loss.item()
                 running_accuracy += (outputs.argmax(dim=1) == labels).float().mean().item()
                 pbar.set_postfix(loss=running_loss/len(pbar), accuracy=running_accuracy/len(pbar), lr=learning_rate)
-
-        # VALIDATION
-        model.eval()
-        val_loss = 0
-        val_accuracy = 0
-        with torch.no_grad():
-            for data, labels in tqdm(valloader, desc=f"Validation Epoch {epoch+1}", disable=True):
-                data, labels = data.to(device), labels.to(device)
-                outputs = model(data)
-                val_loss += criterion(outputs, labels).item()
-                val_accuracy += (outputs.argmax(dim=1) == labels).float().mean().item()
-        val_loss /= len(valloader)
-        val_accuracy /= len(valloader)
 
     end = time.time()
     
@@ -189,25 +203,27 @@ def evaluate(y_true, y_pred):
         "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
-def save_results(train_time, results, dataset, depth, layer_size, lr, epochs, batch):
+def save_results(train_time, results, dataset, channels, kernel_size, dropout, fc_layers, lr, epochs, batch):
     save_run_results({
         "model": "DRTP",
         "dataset": dataset,
         **results,
         "train time": train_time,
-        "depth": depth,
-        "layer size": layer_size,
+        "channels": channels,
+        "kernel size": kernel_size,
+        "dropout": dropout,
+        "fc layers": fc_layers,
         "learning rate": lr,
         "batch": batch,
         "epochs": epochs,
         "device": device    
     })
         
-def save_model(model, dataset, depth, layer_size, lr, epochs, batch):
+def save_model(model, dataset, channels, kernel_size, dropout, fc_layers, lr, epochs, batch):
     drtp_models_dir = MODELS_DIR / "drtp"
     drtp_models_dir.mkdir(parents=True, exist_ok=True)
     
-    name = f"drtp_{dataset}_{depth}_{layer_size}_{lr}_{epochs}_{batch}.pt"
+    name = f"drtp_{dataset}_{channels}_{kernel_size}_{dropout}_{fc_layers}_{lr}_{epochs}_{batch}.pt"
     path = drtp_models_dir / name
     
     torch.save(model.state_dict(), path)
@@ -227,34 +243,38 @@ def main(
         if not datasets:
             raise ValueError(f"No datasets found in {PROCESSED_DATA_DIR}")
 
-    depths = params["train_drtp"]["depths"]
-    layers = params["train_drtp"]["hidden_layers"]
+    channels = params["train_drtp"]["channels"]
+    fc_layers = params["train_drtp"]["fc_layers"]
+    kernel_sizes = params["train_drtp"]["kernel_sizes"]
+    dropouts = params["train_drtp"]["dropouts"]
     learning_rates = params["train_drtp"]["learning_rates"]
     epochs_list = params["train_drtp"]["epochs"]
     batch = params["train_drtp"]["batch"]
     
-    for depth in depths:
-        for layer_size in layers:
-            for lr in learning_rates:
-                for epochs in epochs_list:
-                    for dataset in datasets:
-                        trainloader, valloader, testloader = load_dataset(dataset)
-                            
-                             # Make model
-                        model = make_model(dataset, depth, layer_size)
-    
-                            # Train
-                        model, train_time = train(model, trainloader, valloader, lr, epochs)
-    
-                            # Predict
-                        all_labels, all_preds = predict(model, testloader)
-    
-                            # Evaluate
-                        eval_results = evaluate(all_labels, all_preds)
-    
-                            # Save model & results
-                        save_model(model, dataset, depth, layer_size, lr, epochs, batch)
-                        save_results(train_time, eval_results, dataset, depth, layer_size, lr, epochs, batch)
+    for channels in channels:
+        for fc_layers in fc_layers:
+            for kernel_size in kernel_sizes:
+                for dropout in dropouts:
+                    for lr in learning_rates:
+                        for epochs in epochs_list:
+                            for dataset in datasets:
+                                trainloader, testloader = load_dataset(dataset)
+                                    
+                                     # Make model
+                                model = make_model(dataset, channels, kernel_size, dropout, fc_layers)
+            
+                                    # Train
+                                model, train_time = train(model, trainloader, lr, epochs)
+            
+                                    # Predict
+                                all_labels, all_preds = predict(model, testloader)
+            
+                                    # Evaluate
+                                eval_results = evaluate(all_labels, all_preds)
+            
+                                    # Save model & results
+                                save_model(model, dataset, channels, kernel_size, dropout, fc_layers, lr, epochs, batch)
+                                save_results(train_time, eval_results, dataset, channels, kernel_size, dropout, fc_layers, lr, epochs, batch)
                                 
 
 if __name__ == "__main__":
