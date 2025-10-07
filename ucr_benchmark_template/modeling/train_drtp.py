@@ -58,7 +58,7 @@ class DRTP_Model(nn.Module):
         self.fc_layers = nn.ModuleList()
         for i in range(len(fc_layers) - 1):
             self.fc_layers.append(nn.Linear(fc_layers[i], fc_layers[i+1]))
-        
+
         
         #Hidden layers have fixed random connectivity matrices
         self.random_matrices = []
@@ -70,6 +70,7 @@ class DRTP_Model(nn.Module):
     def forward(self, x):
         self.activations = []
         x = self.conv_layers(x)
+        self.after_conv = x
         for i in range(self.num_layers - 1):
             z = self.fc_layers[i](x)
             y = torch.tanh(z)
@@ -87,10 +88,11 @@ class DRTP_Model(nn.Module):
         
         #Update hidden weights (DRTP)
         for i in range(self.num_layers - 1):
+            
             z, _ = self.activations[i]
             
             if i == 0:
-                prev_y = x
+                prev_y = self.after_conv
             else:
                 prev_y = self.activations[i-1][1]
             
@@ -145,7 +147,7 @@ def make_model(dataset_name, channels, kernel_size, dropout, fc_layers):
     num_classes = int(row['Class'].values[0])
 
     if channels[0] != 1:
-        chalnnels = [1] + channels
+        channels = [1] + channels
 
     if fc_layers[-1] != num_classes:
         fc_layers = fc_layers + [num_classes]
@@ -162,12 +164,14 @@ def train(model, trainloader, learning_rate, epochs):
         model.train()
         running_loss = 0.0
         running_accuracy = 0.0
-        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=False) as pbar:
+        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=True) as pbar:
             for data, labels in pbar:
                 data, labels = data.to(device), labels.to(device)
                 outputs = model(data)
+
                 loss = criterion(outputs, labels)
                 model.update_weights(data, labels, lr=learning_rate)
+
                 running_loss += loss.item()
                 running_accuracy += (outputs.argmax(dim=1) == labels).float().mean().item()
                 pbar.set_postfix(loss=running_loss/len(pbar), accuracy=running_accuracy/len(pbar), lr=learning_rate)
