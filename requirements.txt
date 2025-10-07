@@ -15,6 +15,7 @@ numpy
 pandas
 scikit-learn
 pytest
+optuna
 tqdm
 typer
 -e .

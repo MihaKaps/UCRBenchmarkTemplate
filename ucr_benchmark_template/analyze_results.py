@@ -14,7 +14,7 @@ def avg_over_seed():
 
     # Define standard columns
     metric_cols = ["accuracy", "f1", "precision", "recall", "train time"]
-    group_cols_base = ['model', 'dataset', 'seed']
+    group_cols_base = ['model', 'dataset'] #, 'seed']
 
     # Determine config columns dynamically
     config_cols = [col for col in df.columns if col not in group_cols_base + metric_cols]

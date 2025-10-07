@@ -96,7 +96,7 @@ class DRTP_Model(nn.Module):
             else:
                 prev_y = self.activations[i-1][1]
             
-            m = self.random_matrices[i]  #[hidden_size, num_classes]
+            m = self.random_matrices[i].to(x.device)    #[hidden_size, num_classes]
             
             delta_yk = torch.matmul(y_star, m.T)
             grad_z = (1 - torch.tanh(z)**2) #f'(z) = tanh(z)' = 1 - tanh(z)**2 
