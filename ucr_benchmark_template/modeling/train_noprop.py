@@ -261,6 +261,7 @@ def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, channels, f
 
     if channels[0] != 1:
         chalnnels = [1] + channels
+
     
     return NoPropModel(num_blocks, input_length, emb_dimension, num_classes, kernel_size, channels, fc_layers).to(device)
 
@@ -269,6 +270,7 @@ def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, channels, f
 #=========================
 """
 def train(model, trainloader, valloader, epochs, T, eta, lr, wd): 
+
     
     alphas, alpha_hats = noise_schedule(T)
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=wd) 

@@ -9,8 +9,8 @@ stages:
       size: 316175400
     - path: ucr_benchmark_template/preprocessing/preprocess.py
       hash: md5
-      md5: ff255f6f2c3fd1412d0157b65fce03e3
-      size: 4483
+      md5: ccbef965a13fc8346dfe5802a5f93707
+      size: 4456
     outs:
     - path: data/raw
       hash: md5
@@ -27,12 +27,12 @@ stages:
       nfiles: 416
     - path: ucr_benchmark_template/preprocessing/preprocess.py
       hash: md5
-      md5: ff255f6f2c3fd1412d0157b65fce03e3
-      size: 4483
+      md5: ccbef965a13fc8346dfe5802a5f93707
+      size: 4456
     - path: ucr_benchmark_template/preprocessing/preprocessors/kan.py
       hash: md5
-      md5: 0025ed4a9dfafeb8dc556500819ef620
-      size: 2347
+      md5: 49d903c7615be78e7e08017dd854f24a
+      size: 2271
     - path: ucr_benchmark_template/preprocessing/preprocessors/mlp.py
       hash: md5
       md5: 27636621f3bef9d277afe5028bb9b561
