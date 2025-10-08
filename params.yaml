@@ -45,6 +45,7 @@ train_noprop:
   channels: [[1, 32, 64, 128]]
   kernel_sizes: [3]
   fc_layers: [[256, 256, 256]]
+  merged_layers: [[256, 128]]
   etas: [0.1]
   dropouts: [0.1]
   learning_rates: [0.001]

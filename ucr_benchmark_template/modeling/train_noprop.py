@@ -36,7 +36,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class NoPropBlock(nn.Module):
-    def __init__(self, input_length, emb_dimension, num_classes, kernel_size, dpout, channels, fc_layers):
+    def __init__(self, input_length, emb_dimension, num_classes, kernel_size, dpout, channels, fc_layers, merged_layers):
         super().__init__()
 
         # Build convolutional feature extractor
@@ -77,17 +77,28 @@ class NoPropBlock(nn.Module):
             layers.append(nn.ReLU())
             
         self.fc_layers = nn.Sequential(*layers)
+
+
         
         # Merged FC
-        self.fc_merged = nn.Sequential(
-            nn.Linear(512, 256),
-            nn.BatchNorm1d(256),
-            nn.ReLU(),
-            nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Linear(128, num_classes)
-        )
+        layers = []
+        for i in range(len(merged_layers) - 1):
+            layers.append(nn.Linear(merged_layers[i], merged_layers[i+1]))
+            layers.append(nn.BatchNorm1d(merged_layers[i+1]))
+            layers.append(nn.ReLU())
+
+        self.fc_merged = nn.Sequential(*layers)
+
+        
+        #self.fc_merged = nn.Sequential(
+        #    nn.Linear(512, 256),
+        #    nn.BatchNorm1d(256),
+        #    nn.ReLU(),
+        #    nn.Linear(256, 128),
+        #    nn.BatchNorm1d(128),
+        #    nn.ReLU(),
+        #    nn.Linear(128, num_classes)
+        #)
 
     def forward(self, x, z):
         fx = self.conv_layers(x)
@@ -101,7 +112,7 @@ class NoPropBlock(nn.Module):
 
 
 class NoPropModel(nn.Module):
-    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, kernels, dpout, channels, fc_layers):
+    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, kernels, dpout, channels, fc_layers, merged_layers):
         super().__init__()
         
         self.num_blocks = num_blocks
@@ -117,7 +128,7 @@ class NoPropModel(nn.Module):
 
         # Blocks
         self.blocks = nn.ModuleList([
-            NoPropBlock(input_length, self.emb_dimension, num_classes, kernels, dpout, channels, fc_layers)
+            NoPropBlock(input_length, self.emb_dimension, num_classes, kernels, dpout, channels, fc_layers, merged_layers)
             for _ in range(num_blocks)
         ])
             
@@ -210,7 +221,7 @@ def ensure_channels_first(X):
 #    return trainloader, valloader, testloader
 
 
-def load_dataset(dataset, batch_size = 16):
+def load_dataset(dataset, batch_size = 64):
     path = PROCESSED_DATA_DIR / f"mlp/{dataset}.npz"
     data = np.load(path)
 
@@ -230,7 +241,7 @@ def load_dataset(dataset, batch_size = 16):
 # Model
 #=========================
 
-def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, dpout, channels, fc_layers):
+def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, dpout, channels, fc_layers, merged_layers):
     summary_csv = Path("data/external/DataSummary.csv")
     df_meta = pd.read_csv(summary_csv)
 
@@ -239,6 +250,7 @@ def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, dpout, chan
         raise ValueError(f"Dataset {dataset_name} not found in summary.")
 
     length_value = row['Length'].values[0]
+    
     if isinstance(length_value, str) and length_value.lower().startswith("var"):
         # load one sample to get true input length
         processed_dir = Path("data/processed/mlp")
@@ -249,20 +261,22 @@ def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, dpout, chan
 
     num_classes = int(row['Class'].values[0])
  
-    if fc_layers[0] != emb_dimension:
-        if emb_dimension == 0:
-            fc_layers = [num_classes] + fc_layers
-        else:
-            fc_layers = [emb_dimension] + fc_layers
 
-    if fc_layers[-1] != 256:
-        fc_layers = fc_layers + [256]
+    if emb_dimension == 0:
+        fc_layers = [num_classes] + fc_layers
+    else:
+        fc_layers = [emb_dimension] + fc_layers
 
+    
+    fc_layers = fc_layers + [256]
+
+    merged_layers = [512] + merged_layers + [num_classes]
+    
     if channels[0] != 1:
         channels = [1] + channels
 
     
-    return NoPropModel(num_blocks, input_length, emb_dimension, num_classes, kernel_size, dpout, channels, fc_layers).to(device)
+    return NoPropModel(num_blocks, input_length, emb_dimension, num_classes, kernel_size, dpout, channels, fc_layers, merged_layers).to(device)
 
 #=========================
 # Train & Eval
@@ -439,7 +453,7 @@ def evaluate(y_true, y_pred):
         "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
-def save_results(train_time, results, dataset, t, emb_dimension, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch):
+def save_results(train_time, results, dataset, t, emb_dimension, channels, k_size, dpout, fc_layers, merged_layers, eta, lr, wd, epochs, batch):
     save_run_results({
         "model": "NoProp",
         "dataset": dataset,
@@ -451,6 +465,7 @@ def save_results(train_time, results, dataset, t, emb_dimension, channels, k_siz
         "kernel size": k_size,
         "dropout" : dpout,
         "fc layers": fc_layers,
+        "merged layers": merged_layers,
         "eta": eta,
         "learning rate": lr,
         "weight decay": wd,
@@ -459,11 +474,11 @@ def save_results(train_time, results, dataset, t, emb_dimension, channels, k_siz
         "device": device    
     })
         
-def save_model(model, dataset, t, emb_dimension, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch):
+def save_model(model, dataset, t, emb_dimension, channels, k_size, dpout, fc_layers, merged_layers, eta, lr, wd, epochs, batch):
     noprop_models_dir = MODELS_DIR / "noprop"
     noprop_models_dir.mkdir(parents=True, exist_ok=True)
     
-    name = f"noprop_{dataset}_{t}_{emb_dimension}_{channels}_{k_size}_{dpout}_{fc_layers}_{eta}_{lr}_{wd}_{epochs}_{batch}.pt"
+    name = f"noprop_{dataset}_{t}_{emb_dimension}_{channels}_{k_size}_{dpout}_{fc_layers}_{merged_layers}_{eta}_{lr}_{wd}_{epochs}_{batch}.pt"
     path = noprop_models_dir / name
     
     torch.save(model.state_dict(), path)
@@ -489,6 +504,7 @@ def main(
     kernel_sizes = params["train_noprop"]["kernel_sizes"]
     dropouts = params["train_noprop"]["dropouts"]
     fc_layers = params["train_noprop"]["fc_layers"]
+    merged_layers = params["train_noprop"]["merged_layers"]
     etas = params["train_noprop"]["etas"]
     learning_rates = params["train_noprop"]["learning_rates"]
     weight_decays = params["train_noprop"]["weight_decays"]
@@ -501,31 +517,32 @@ def main(
                 for emb_d in emb_dimensions:
                     for channels in channels:
                         for fc_layers in fc_layers:
-                            for eta in etas:
-                                for lr in learning_rates:
-                                    for wd in weight_decays:
-                                        for epochs in epoch_list:
-                                            for dataset in datasets:
-                                                print(dataset)
-                                                trainloader, testloader = load_dataset(dataset, 16) #trainloader, valloader, testloader = load_dataset(dataset)
+                            for merged_layers in merged_layers:
+                                for eta in etas:
+                                    for lr in learning_rates:
+                                        for wd in weight_decays:
+                                            for epochs in epoch_list:
+                                                for dataset in datasets:
+                                                    print(dataset)
+                                                    trainloader, testloader = load_dataset(dataset, 64) #trainloader, valloader, testloader = load_dataset(dataset)
+                                                        
+                                                         # Make model
+                                                    model = make_model(dataset, emb_d, t, k_size, dpout, channels, fc_layers, merged_layers)
+                
+                                                        # Train
+                                                    model, train_time = train(model, trainloader, epochs, t, eta, lr, wd) #model, train_time = train(model, trainloader, valloader, epochs, t, eta, lr, wd)
                                                     
-                                                     # Make model
-                                                model = make_model(dataset, emb_d, t, k_size, dpout, channels, fc_layers)
-            
-                                                    # Train
-                                                model, train_time = train(model, trainloader, epochs, t, eta, lr, wd) #model, train_time = train(model, trainloader, valloader, epochs, t, eta, lr, wd)
-                                                
-                                                
-                                                    # Predict
-                                                all_labels, all_preds = predict(model, testloader)
-                            
-                                                    # Evaluate
-                                                eval_results = evaluate(all_labels, all_preds)
-                            
-                                                    # Save model & results
-                                                
-                                                save_model(model, dataset, t, emb_d, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch)
-                                                save_results(train_time, eval_results, dataset, t, emb_d, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch)
+                                                    
+                                                        # Predict
+                                                    all_labels, all_preds = predict(model, testloader)
+                                
+                                                        # Evaluate
+                                                    eval_results = evaluate(all_labels, all_preds)
+                                
+                                                        # Save model & results
+                                                    
+                                                    save_model(model, dataset, t, emb_d, channels, k_size, dpout, fc_layers, merged_layers, eta, lr, wd, epochs, batch)
+                                                    save_results(train_time, eval_results, dataset, t, emb_d, channels, k_size, dpout, fc_layers, merged_layers, eta, lr, wd, epochs, batch)
                                             
 
 if __name__ == "__main__":
