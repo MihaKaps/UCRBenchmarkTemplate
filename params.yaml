@@ -46,6 +46,7 @@ train_noprop:
   kernel_sizes: [3]
   fc_layers: [[256, 256, 256]]
   etas: [0.1]
+  dropouts: [0.1]
   learning_rates: [0.001]
   weight_decays: [0.001]
   epochs: [70]

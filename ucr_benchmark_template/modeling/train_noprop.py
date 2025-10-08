@@ -36,7 +36,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class NoPropBlock(nn.Module):
-    def __init__(self, input_length, emb_dimension, num_classes, kernel_size, channels, fc_layers):
+    def __init__(self, input_length, emb_dimension, num_classes, kernel_size, dpout, channels, fc_layers):
         super().__init__()
 
         # Build convolutional feature extractor
@@ -51,7 +51,7 @@ class NoPropBlock(nn.Module):
             ))
             layers.append(nn.ReLU())
             layers.append(nn.MaxPool1d(kernel_size=2))
-            layers.append(nn.Dropout(0.2))
+            layers.append(nn.Dropout(dpout))
 
         layers.append(nn.Flatten())  # flatten only once, at the end
         self.conv_layers = nn.Sequential(*layers)
@@ -67,7 +67,7 @@ class NoPropBlock(nn.Module):
             nn.BatchNorm1d(256),
             nn.ReLU()
         )
-
+        
         
         #FC Layers
         layers = []
@@ -78,7 +78,7 @@ class NoPropBlock(nn.Module):
             
         self.fc_layers = nn.Sequential(*layers)
         
-        # Merged FC 
+        # Merged FC
         self.fc_merged = nn.Sequential(
             nn.Linear(512, 256),
             nn.BatchNorm1d(256),
@@ -92,7 +92,6 @@ class NoPropBlock(nn.Module):
     def forward(self, x, z):
         fx = self.conv_layers(x)
         fx = self.fc_input(fx)
-        
         fz = self.fc_layers(z)
         
         fused = torch.cat([fx, fz], dim = -1)
@@ -102,7 +101,7 @@ class NoPropBlock(nn.Module):
 
 
 class NoPropModel(nn.Module):
-    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, kernels, channels, fc_layers):
+    def __init__(self, num_blocks, input_length, emb_dimension, num_classes, kernels, dpout, channels, fc_layers):
         super().__init__()
         
         self.num_blocks = num_blocks
@@ -118,7 +117,7 @@ class NoPropModel(nn.Module):
 
         # Blocks
         self.blocks = nn.ModuleList([
-            NoPropBlock(input_length, self.emb_dimension, num_classes, kernels, channels, fc_layers)
+            NoPropBlock(input_length, self.emb_dimension, num_classes, kernels, dpout, channels, fc_layers)
             for _ in range(num_blocks)
         ])
             
@@ -231,7 +230,7 @@ def load_dataset(dataset, batch_size = 16):
 # Model
 #=========================
 
-def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, channels, fc_layers):
+def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, dpout, channels, fc_layers):
     summary_csv = Path("data/external/DataSummary.csv")
     df_meta = pd.read_csv(summary_csv)
 
@@ -260,10 +259,10 @@ def make_model(dataset_name, emb_dimension, num_blocks, kernel_size, channels, f
         fc_layers = fc_layers + [256]
 
     if channels[0] != 1:
-        chalnnels = [1] + channels
+        channels = [1] + channels
 
     
-    return NoPropModel(num_blocks, input_length, emb_dimension, num_classes, kernel_size, channels, fc_layers).to(device)
+    return NoPropModel(num_blocks, input_length, emb_dimension, num_classes, kernel_size, dpout, channels, fc_layers).to(device)
 
 #=========================
 # Train & Eval
@@ -440,7 +439,7 @@ def evaluate(y_true, y_pred):
         "recall": float(recall_score(y_true, y_pred, average="macro"))
     }
 
-def save_results(train_time, results, dataset, t, emb_dimension, channels, k_size, fc_layers, eta, lr, wd, epochs, batch):
+def save_results(train_time, results, dataset, t, emb_dimension, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch):
     save_run_results({
         "model": "NoProp",
         "dataset": dataset,
@@ -450,6 +449,7 @@ def save_results(train_time, results, dataset, t, emb_dimension, channels, k_siz
         "embedding dimension": emb_dimension,
         "cnn channels": channels,
         "kernel size": k_size,
+        "dropout" : dpout,
         "fc layers": fc_layers,
         "eta": eta,
         "learning rate": lr,
@@ -459,11 +459,11 @@ def save_results(train_time, results, dataset, t, emb_dimension, channels, k_siz
         "device": device    
     })
         
-def save_model(model, dataset, t, emb_dimension, channels, k_size, fc_layers, eta, lr, wd, epochs, batch):
+def save_model(model, dataset, t, emb_dimension, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch):
     noprop_models_dir = MODELS_DIR / "noprop"
     noprop_models_dir.mkdir(parents=True, exist_ok=True)
     
-    name = f"noprop_{dataset}_{t}_{emb_dimension}_{channels}_{k_size}_{fc_layers}_{eta}_{lr}_{wd}_{epochs}_{batch}.pt"
+    name = f"noprop_{dataset}_{t}_{emb_dimension}_{channels}_{k_size}_{dpout}_{fc_layers}_{eta}_{lr}_{wd}_{epochs}_{batch}.pt"
     path = noprop_models_dir / name
     
     torch.save(model.state_dict(), path)
@@ -487,6 +487,7 @@ def main(
     emb_dimensions = params["train_noprop"]["emb_dimensions"]
     channels = params["train_noprop"]["channels"]
     kernel_sizes = params["train_noprop"]["kernel_sizes"]
+    dropouts = params["train_noprop"]["dropouts"]
     fc_layers = params["train_noprop"]["fc_layers"]
     etas = params["train_noprop"]["etas"]
     learning_rates = params["train_noprop"]["learning_rates"]
@@ -496,34 +497,35 @@ def main(
     
     for t in ts:
         for k_size in kernel_sizes:
-            for emb_d in emb_dimensions:
-                for channels in channels:
-                    for fc_layers in fc_layers:
-                        for eta in etas:
-                            for lr in learning_rates:
-                                for wd in weight_decays:
-                                    for epochs in epoch_list:
-                                        for dataset in datasets:
-                                            print(dataset)
-                                            trainloader, testloader = load_dataset(dataset, 16) #trainloader, valloader, testloader = load_dataset(dataset)
+            for dpout in dropouts:
+                for emb_d in emb_dimensions:
+                    for channels in channels:
+                        for fc_layers in fc_layers:
+                            for eta in etas:
+                                for lr in learning_rates:
+                                    for wd in weight_decays:
+                                        for epochs in epoch_list:
+                                            for dataset in datasets:
+                                                print(dataset)
+                                                trainloader, testloader = load_dataset(dataset, 16) #trainloader, valloader, testloader = load_dataset(dataset)
+                                                    
+                                                     # Make model
+                                                model = make_model(dataset, emb_d, t, k_size, dpout, channels, fc_layers)
+            
+                                                    # Train
+                                                model, train_time = train(model, trainloader, epochs, t, eta, lr, wd) #model, train_time = train(model, trainloader, valloader, epochs, t, eta, lr, wd)
                                                 
-                                                 # Make model
-                                            model = make_model(dataset, emb_d, t, k_size, channels, fc_layers)
-        
-                                                # Train
-                                            model, train_time = train(model, trainloader, epochs, t, eta, lr, wd) #model, train_time = train(model, trainloader, valloader, epochs, t, eta, lr, wd)
-                                            
-                                            
-                                                # Predict
-                                            all_labels, all_preds = predict(model, testloader)
-                        
-                                                # Evaluate
-                                            eval_results = evaluate(all_labels, all_preds)
-                        
-                                                # Save model & results
-                                            
-                                            save_model(model, dataset, t, emb_d, channels, k_size, fc_layers, eta, lr, wd, epochs, batch)
-                                            save_results(train_time, eval_results, dataset, t, emb_d, channels, k_size, fc_layers, eta, lr, wd, epochs, batch)
+                                                
+                                                    # Predict
+                                                all_labels, all_preds = predict(model, testloader)
+                            
+                                                    # Evaluate
+                                                eval_results = evaluate(all_labels, all_preds)
+                            
+                                                    # Save model & results
+                                                
+                                                save_model(model, dataset, t, emb_d, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch)
+                                                save_results(train_time, eval_results, dataset, t, emb_d, channels, k_size, dpout, fc_layers, eta, lr, wd, epochs, batch)
                                             
 
 if __name__ == "__main__":
