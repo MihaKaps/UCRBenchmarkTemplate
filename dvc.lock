@@ -233,11 +233,11 @@ stages:
       size: 1040
     - path: ucr_benchmark_template/modeling/train_noprop.py
       hash: md5
-      md5: ffdf1781d31e4a3bdab76b4b85481521
+      md5: 160a4cddacdf6a037cca86321d747c43
       size: 20214
     outs:
     - path: models/noprop/
       hash: md5
-      md5: 80b64d67ba3a6f398958fdee6fe7bb3c.dir
+      md5: 6979dafe7cf5d08592edfc8496948d08.dir
       size: 92397687
       nfiles: 1

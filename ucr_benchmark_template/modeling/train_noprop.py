@@ -375,7 +375,7 @@ def train(model, trainloader, epochs, T, eta, lr, wd):
             running_accuracy = 0.0
             
             step = 0
-            with tqdm(trainloader, desc=f"Training Epoch {epoch+1} Block {t}", disable=True) as pbar: 
+            with tqdm(trainloader, desc=f"Training Epoch {epoch+1} Block {t}", disable=False) as pbar: 
                 
                 for data, labels in pbar: 
                     data, labels = data.to(device), labels.to(device) 
@@ -524,7 +524,7 @@ def main(
                                             for epochs in epoch_list:
                                                 for dataset in datasets:
                                                     print(dataset)
-                                                    trainloader, testloader = load_dataset(dataset, 64) #trainloader, valloader, testloader = load_dataset(dataset)
+                                                    trainloader, testloader = load_dataset(dataset, 16) #trainloader, valloader, testloader = load_dataset(dataset)
                                                         
                                                          # Make model
                                                     model = make_model(dataset, emb_d, t, k_size, dpout, channels, fc_layers, merged_layers)
