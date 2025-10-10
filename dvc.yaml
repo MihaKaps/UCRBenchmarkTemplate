@@ -57,6 +57,15 @@ stages:
       - params.yaml  
     outs:
       - models/noprop/
+
+  train_drtp_hand:
+    cmd: python -m ucr_benchmark_template.modeling.train_drtp_hand
+    deps:
+      - data/processed/
+      - ucr_benchmark_template/modeling/train_drtp_hand.py
+      - params.yaml  
+    outs:
+      - models/drtp_hand/
       
   train_inceptiontime:
     cmd: python -m ucr_benchmark_template.modeling.train_inceptiontime 

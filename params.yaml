@@ -39,6 +39,15 @@ train_drtp:
   epochs: [500]
   batch: 16
 
+train_drtp_hand:
+  channels: [[1, 32, 64, 128]]
+  fc_layers: [[256, 256, 256]]
+  dropouts: [0.2]
+  kernel_sizes: [3]
+  learning_rates: [0.0001]
+  epochs: [500]
+  batch: 16
+
 train_noprop:
   Ts: [10]
   emb_dimensions: [0]

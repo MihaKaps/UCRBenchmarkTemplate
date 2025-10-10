@@ -45,11 +45,8 @@ class DRTP_Model(nn.Module):
         layers.append(nn.Flatten())  # flatten only once, at the end
         self.conv_layers = nn.Sequential(*layers)
 
-        for p in self.conv_layers.parameters():
-            p.requires_grad = False
-
         with torch.no_grad():
-            dummy = torch.zeros(1, channels[0], input_length)
+            dummy = torch.zeros(1, 1, input_length)
             flat_size = self.conv_layers(dummy).shape[1]
 
         fc_layers = [flat_size] + fc_layers
@@ -82,7 +79,7 @@ class DRTP_Model(nn.Module):
         self.activations.append((z_out, y_out))
         return y_out
 
-    def update_weights(self, x, y, lr=0.00001):
+    def update_weights(self, x, y, lr=0.001):
         y_out = self.forward(x)
         y_star = F.one_hot(y, num_classes=y_out.size(1)).float()
         
@@ -155,7 +152,7 @@ def make_model(dataset_name, channels, kernel_size, dropout, fc_layers):
     return DRTP_Model(input_length, num_classes, channels, kernel_size, dropout, fc_layers).to(device)
 
 def train(model, trainloader, learning_rate, epochs):
-    
+    optimizer = torch.optim.Adam([p for p in model.conv_layers.parameters() if p.requires_grad], lr=0.001)
     criterion = nn.CrossEntropyLoss()
 
     start = time.time()
@@ -164,14 +161,24 @@ def train(model, trainloader, learning_rate, epochs):
         model.train()
         running_loss = 0.0
         running_accuracy = 0.0
-        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=True) as pbar:
+        with tqdm(trainloader, desc=f"Training Epoch {epoch+1}", disable=False) as pbar:
             for data, labels in pbar:
+                optimizer.zero_grad()
+                
                 data, labels = data.to(device), labels.to(device)
                 outputs = model(data)
 
                 loss = criterion(outputs, labels)
-                model.update_weights(data, labels, lr=learning_rate)
+                
+                loss.backward()
+                
+                for p in model.fc_layers.parameters():
+                    p.grad = None
 
+                #print(model.conv_layers[0].weight)
+                optimizer.step()
+                
+                model.update_weights(data, labels, lr=learning_rate)
                 running_loss += loss.item()
                 running_accuracy += (outputs.argmax(dim=1) == labels).float().mean().item()
                 pbar.set_postfix(loss=running_loss/len(pbar), accuracy=running_accuracy/len(pbar), lr=learning_rate)
